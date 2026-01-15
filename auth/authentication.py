@@ -341,3 +341,116 @@ def get_company_stats(company_id: int) -> dict:
         }
     finally:
         session.close()
+
+
+def update_company(company_id: int, name: str = None, active: bool = None) -> tuple[bool, str]:
+    """Atualiza dados de uma empresa."""
+    session = SessionLocal()
+    try:
+        company = session.query(Company).filter(Company.id == company_id).first()
+        if not company:
+            return False, "Empresa não encontrada."
+
+        if name is not None:
+            company.name = name
+        if active is not None:
+            company.active = active
+
+        session.commit()
+        return True, "Empresa atualizada com sucesso!"
+    except Exception as e:
+        session.rollback()
+        return False, f"Erro ao atualizar empresa: {str(e)}"
+    finally:
+        session.close()
+
+
+def delete_company(company_id: int) -> tuple[bool, str]:
+    """Exclui uma empresa e todos os seus dados."""
+    session = SessionLocal()
+    try:
+        from database.models import Task, TaskPhoto
+
+        company = session.query(Company).filter(Company.id == company_id).first()
+        if not company:
+            return False, "Empresa não encontrada."
+
+        # Excluir fotos das tarefas
+        task_ids = [t.id for t in session.query(Task).filter(Task.company_id == company_id).all()]
+        if task_ids:
+            session.query(TaskPhoto).filter(TaskPhoto.task_id.in_(task_ids)).delete(synchronize_session=False)
+
+        # Excluir tarefas
+        session.query(Task).filter(Task.company_id == company_id).delete(synchronize_session=False)
+
+        # Excluir usuários
+        session.query(User).filter(User.company_id == company_id).delete(synchronize_session=False)
+
+        # Excluir empresa
+        session.delete(company)
+        session.commit()
+
+        return True, "Empresa excluída com sucesso!"
+    except Exception as e:
+        session.rollback()
+        return False, f"Erro ao excluir empresa: {str(e)}"
+    finally:
+        session.close()
+
+
+def delete_user(user_id: int, company_id: int) -> tuple[bool, str]:
+    """Exclui um usuário (validando company_id)."""
+    session = SessionLocal()
+    try:
+        from database.models import Task, TaskPhoto
+
+        user = session.query(User).filter(
+            User.id == user_id,
+            User.company_id == company_id
+        ).first()
+
+        if not user:
+            return False, "Usuário não encontrado."
+
+        # Excluir fotos das tarefas do usuário
+        task_ids = [t.id for t in session.query(Task).filter(Task.user_id == user_id).all()]
+        if task_ids:
+            session.query(TaskPhoto).filter(TaskPhoto.task_id.in_(task_ids)).delete(synchronize_session=False)
+
+        # Excluir tarefas do usuário
+        session.query(Task).filter(Task.user_id == user_id).delete(synchronize_session=False)
+
+        # Excluir usuário
+        session.delete(user)
+        session.commit()
+
+        return True, "Usuário excluído com sucesso!"
+    except Exception as e:
+        session.rollback()
+        return False, f"Erro ao excluir usuário: {str(e)}"
+    finally:
+        session.close()
+
+
+def get_users_by_company(company_id: int) -> list:
+    """Retorna lista de usuários de uma empresa específica."""
+    session = SessionLocal()
+    try:
+        users = session.query(User).filter(
+            User.company_id == company_id
+        ).order_by(User.full_name).all()
+
+        return [
+            {
+                "id": u.id,
+                "username": u.username,
+                "full_name": u.full_name,
+                "team": u.team,
+                "role": u.role,
+                "active": u.active,
+                "created_at": u.created_at,
+            }
+            for u in users
+        ]
+    finally:
+        session.close()
