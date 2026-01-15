@@ -10,6 +10,7 @@ env/
 
 # Environment variables
 .env
+.streamlit/secrets.toml
 
 # Uploads (fotos)
 uploads/*
