@@ -248,3 +248,96 @@ def require_admin():
     if not is_admin():
         st.error("Acesso negado. Esta página é restrita a administradores.")
         st.stop()
+
+
+# ============ Funções de Gestão de Empresas ============
+
+
+def get_all_companies() -> list:
+    """Retorna lista de todas as empresas."""
+    session = SessionLocal()
+    try:
+        companies = session.query(Company).order_by(Company.name).all()
+        return [
+            {
+                "id": c.id,
+                "name": c.name,
+                "slug": c.slug,
+                "active": c.active,
+                "created_at": c.created_at,
+            }
+            for c in companies
+        ]
+    finally:
+        session.close()
+
+
+def create_company(name: str, slug: str) -> tuple[bool, str, int]:
+    """
+    Cria uma nova empresa.
+    Retorna (sucesso, mensagem, company_id).
+    """
+    if not name.strip():
+        return False, "Nome da empresa é obrigatório.", None
+    if not slug.strip():
+        return False, "Slug é obrigatório.", None
+
+    # Validar slug (apenas letras minúsculas, números e hífens)
+    import re
+    if not re.match(r'^[a-z0-9-]+$', slug):
+        return False, "Slug deve conter apenas letras minúsculas, números e hífens.", None
+
+    session = SessionLocal()
+    try:
+        # Verifica se slug já existe
+        existing = session.query(Company).filter(Company.slug == slug).first()
+        if existing:
+            return False, "Já existe uma empresa com este slug.", None
+
+        new_company = Company(
+            name=name.strip(),
+            slug=slug.strip().lower(),
+            active=True,
+        )
+        session.add(new_company)
+        session.commit()
+        return True, "Empresa criada com sucesso!", new_company.id
+    except Exception as e:
+        session.rollback()
+        return False, f"Erro ao criar empresa: {str(e)}", None
+    finally:
+        session.close()
+
+
+def toggle_company_status(company_id: int) -> tuple[bool, str]:
+    """Ativa/desativa uma empresa."""
+    session = SessionLocal()
+    try:
+        company = session.query(Company).filter(Company.id == company_id).first()
+        if not company:
+            return False, "Empresa não encontrada."
+
+        company.active = not company.active
+        status = "ativada" if company.active else "desativada"
+        session.commit()
+        return True, f"Empresa {status} com sucesso!"
+    except Exception as e:
+        session.rollback()
+        return False, f"Erro ao alterar status: {str(e)}"
+    finally:
+        session.close()
+
+
+def get_company_stats(company_id: int) -> dict:
+    """Retorna estatísticas de uma empresa."""
+    session = SessionLocal()
+    try:
+        from database.models import Task
+        user_count = session.query(User).filter(User.company_id == company_id).count()
+        task_count = session.query(Task).filter(Task.company_id == company_id).count()
+        return {
+            "users": user_count,
+            "tasks": task_count,
+        }
+    finally:
+        session.close()

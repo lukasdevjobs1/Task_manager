@@ -17,6 +17,10 @@ from auth.authentication import (
     update_password,
     toggle_user_status,
     get_all_users,
+    get_all_companies,
+    create_company,
+    toggle_company_status,
+    get_company_stats,
 )
 from config import EQUIPES, ROLES
 
@@ -31,7 +35,7 @@ def render_admin_page():
     st.markdown("---")
 
     # Tabs para organizar funcionalidades
-    tab1, tab2, tab3 = st.tabs(["Usuários", "Novo Usuário", "Alterar Senha"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Usuários", "Novo Usuário", "Alterar Senha", "Empresas"])
 
     # Tab 1: Lista de Usuários
     with tab1:
@@ -186,6 +190,153 @@ def render_admin_page():
                     success, msg = update_password(user_id, new_pass, user["company_id"])
                     if success:
                         st.success(msg)
+                    else:
+                        st.error(msg)
+
+    # Tab 4: Gestão de Empresas
+    with tab4:
+        st.subheader("Gestão de Empresas")
+
+        # Lista de empresas
+        companies = get_all_companies()
+        if companies:
+            # Criar DataFrame com estatísticas
+            companies_data = []
+            for c in companies:
+                stats = get_company_stats(c["id"])
+                companies_data.append({
+                    "id": c["id"],
+                    "name": c["name"],
+                    "slug": c["slug"],
+                    "active": c["active"],
+                    "users": stats["users"],
+                    "tasks": stats["tasks"],
+                    "created_at": c["created_at"],
+                })
+
+            df = pd.DataFrame(companies_data)
+            df["created_at"] = pd.to_datetime(df["created_at"]).dt.strftime("%d/%m/%Y")
+            df["status"] = df["active"].apply(lambda x: "Ativa" if x else "Inativa")
+
+            df_display = df[["name", "slug", "users", "tasks", "status", "created_at"]]
+            df_display.columns = ["Nome", "Slug", "Usuários", "Tarefas", "Status", "Criado em"]
+            st.dataframe(df_display, use_container_width=True, hide_index=True)
+
+            # Ativar/Desativar empresa
+            st.markdown("---")
+            st.subheader("Ativar/Desativar Empresa")
+
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                company_options = {
+                    f"{c['name']} ({c['slug']})": c["id"]
+                    for c in companies
+                    if c["id"] != user["company_id"]  # Não pode desativar própria empresa
+                }
+                if company_options:
+                    selected_company = st.selectbox(
+                        "Selecione a empresa",
+                        options=list(company_options.keys()),
+                        key="toggle_company",
+                    )
+                else:
+                    st.info("Não há outras empresas para gerenciar.")
+                    selected_company = None
+
+            with col2:
+                if selected_company:
+                    selected_company_id = company_options[selected_company]
+                    selected_company_data = next(
+                        (c for c in companies if c["id"] == selected_company_id), None
+                    )
+                    action = "Desativar" if selected_company_data["active"] else "Ativar"
+
+                    if st.button(action, type="primary", use_container_width=True, key="btn_toggle_company"):
+                        success, msg = toggle_company_status(selected_company_id)
+                        if success:
+                            st.success(msg)
+                            st.rerun()
+                        else:
+                            st.error(msg)
+        else:
+            st.info("Nenhuma empresa cadastrada.")
+
+        # Criar nova empresa
+        st.markdown("---")
+        st.subheader("Criar Nova Empresa")
+
+        with st.form("new_company_form"):
+            col1, col2 = st.columns(2)
+
+            with col1:
+                company_name = st.text_input(
+                    "Nome da Empresa *",
+                    placeholder="Ex: Minha Empresa LTDA"
+                )
+            with col2:
+                company_slug = st.text_input(
+                    "Slug (identificador) *",
+                    placeholder="Ex: minha-empresa",
+                    help="Use apenas letras minúsculas, números e hífens"
+                )
+
+            st.markdown("---")
+            st.subheader("Admin da Nova Empresa")
+            st.caption("Será criado um administrador para a nova empresa")
+
+            col1, col2 = st.columns(2)
+            with col1:
+                admin_name = st.text_input("Nome do Admin *", placeholder="Nome completo")
+                admin_username = st.text_input("Usuário do Admin *", placeholder="Nome de usuário")
+            with col2:
+                admin_team = st.selectbox("Equipe *", options=EQUIPES, format_func=str.capitalize, key="company_admin_team")
+                admin_password = st.text_input("Senha do Admin *", type="password", placeholder="Mínimo 6 caracteres")
+
+            submitted = st.form_submit_button("Criar Empresa", use_container_width=True, type="primary")
+
+            if submitted:
+                errors = []
+
+                if not company_name.strip():
+                    errors.append("Nome da empresa é obrigatório.")
+                if not company_slug.strip():
+                    errors.append("Slug é obrigatório.")
+                if not admin_name.strip():
+                    errors.append("Nome do admin é obrigatório.")
+                if not admin_username.strip():
+                    errors.append("Usuário do admin é obrigatório.")
+                if not admin_password:
+                    errors.append("Senha do admin é obrigatória.")
+                elif len(admin_password) < 6:
+                    errors.append("Senha deve ter no mínimo 6 caracteres.")
+
+                if errors:
+                    for error in errors:
+                        st.error(error)
+                else:
+                    # Criar empresa
+                    success, msg, new_company_id = create_company(
+                        name=company_name.strip(),
+                        slug=company_slug.strip().lower(),
+                    )
+
+                    if success and new_company_id:
+                        # Criar admin da empresa
+                        user_success, user_msg = create_user(
+                            username=admin_username.strip(),
+                            password=admin_password,
+                            full_name=admin_name.strip(),
+                            team=admin_team,
+                            company_id=new_company_id,
+                            role="admin",
+                        )
+
+                        if user_success:
+                            st.success(f"Empresa '{company_name}' criada com sucesso!")
+                            st.success(f"Admin '{admin_username}' criado com sucesso!")
+                            st.balloons()
+                        else:
+                            st.warning(f"Empresa criada, mas erro ao criar admin: {user_msg}")
                     else:
                         st.error(msg)
 
