@@ -1,6 +1,6 @@
 """
 Script para inicializar o banco de dados.
-Cria todas as tabelas e o usuário admin padrão.
+Cria todas as tabelas, empresa padrão e usuário admin.
 """
 
 import sys
@@ -9,7 +9,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from database.connection import engine, SessionLocal
-from database.models import Base, User
+from database.models import Base, User, Company
 import bcrypt
 
 
@@ -25,7 +25,33 @@ def create_tables():
     print("Tabelas criadas com sucesso!")
 
 
-def create_default_admin():
+def create_default_company():
+    """Cria a empresa padrão se não existir."""
+    session = SessionLocal()
+    try:
+        company = session.query(Company).filter(Company.slug == "empresa-padrao").first()
+        if company:
+            print("Empresa padrão já existe.")
+            return company.id
+
+        default_company = Company(
+            name="Empresa Padrão",
+            slug="empresa-padrao",
+            active=True,
+        )
+        session.add(default_company)
+        session.commit()
+        print("Empresa padrão criada com sucesso!")
+        return default_company.id
+    except Exception as e:
+        session.rollback()
+        print(f"Erro ao criar empresa padrão: {e}")
+        raise
+    finally:
+        session.close()
+
+
+def create_default_admin(company_id: int):
     """Cria o usuário admin padrão se não existir."""
     session = SessionLocal()
     try:
@@ -37,6 +63,7 @@ def create_default_admin():
 
         # Cria o admin padrão
         admin_user = User(
+            company_id=company_id,
             username="admin",
             password_hash=hash_password("admin123"),
             full_name="Administrador",
@@ -65,7 +92,8 @@ def init_database():
     print("=" * 50)
 
     create_tables()
-    create_default_admin()
+    company_id = create_default_company()
+    create_default_admin(company_id)
 
     print("=" * 50)
     print("Banco de dados inicializado com sucesso!")

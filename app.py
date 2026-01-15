@@ -56,7 +56,8 @@ def render_sidebar():
         st.title("📋 Sistema de Tarefas")
         st.markdown("---")
 
-        # Informações do usuário
+        # Informações do usuário e empresa
+        st.markdown(f"**Empresa:** {user['company_name']}")
         st.markdown(f"**Usuário:** {user['full_name']}")
         st.markdown(f"**Equipe:** {user['team'].capitalize()}")
         if is_admin():

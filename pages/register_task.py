@@ -148,6 +148,7 @@ def render_register_task_page():
                 session = SessionLocal()
                 try:
                     task = Task(
+                        company_id=user["company_id"],
                         user_id=user["id"],
                         empresa=empresa.strip(),
                         bairro=bairro.strip(),

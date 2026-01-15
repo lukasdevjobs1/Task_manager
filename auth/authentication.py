@@ -11,7 +11,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from database.connection import SessionLocal
-from database.models import User
+from database.models import User, Company
 
 
 def hash_password(password: str) -> str:
@@ -24,17 +24,25 @@ def verify_password(password: str, password_hash: str) -> bool:
     return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
 
 
-def authenticate_user(username: str, password: str) -> Optional[User]:
+def authenticate_user(username: str, password: str) -> Optional[dict]:
     """
     Autentica um usuário pelo username e senha.
-    Retorna o objeto User se válido, None caso contrário.
+    Retorna dict com dados do usuário se válido, None caso contrário.
     """
     session = SessionLocal()
     try:
-        user = session.query(User).filter(User.username == username).first()
-        if user and user.active and verify_password(password, user.password_hash):
-            # Retorna uma cópia dos dados para evitar problemas de sessão detached
-            return user
+        user = session.query(User).join(Company).filter(User.username == username).first()
+        if user and user.active and user.company.active and verify_password(password, user.password_hash):
+            # Retorna um dicionário com todos os dados necessários
+            return {
+                "id": user.id,
+                "company_id": user.company_id,
+                "company_name": user.company.name,
+                "username": user.username,
+                "full_name": user.full_name,
+                "team": user.team,
+                "role": user.role,
+            }
         return None
     finally:
         session.close()
@@ -45,6 +53,7 @@ def create_user(
     password: str,
     full_name: str,
     team: str,
+    company_id: int,
     role: str = "user",
 ) -> tuple[bool, str]:
     """
@@ -63,6 +72,7 @@ def create_user(
 
         # Cria novo usuário
         new_user = User(
+            company_id=company_id,
             username=username,
             password_hash=hash_password(password),
             full_name=full_name,
@@ -80,14 +90,17 @@ def create_user(
         session.close()
 
 
-def update_password(user_id: int, new_password: str) -> tuple[bool, str]:
-    """Atualiza a senha de um usuário."""
+def update_password(user_id: int, new_password: str, company_id: int) -> tuple[bool, str]:
+    """Atualiza a senha de um usuário (validando company_id)."""
     if len(new_password) < 6:
         return False, "A senha deve ter no mínimo 6 caracteres."
 
     session = SessionLocal()
     try:
-        user = session.query(User).filter(User.id == user_id).first()
+        user = session.query(User).filter(
+            User.id == user_id,
+            User.company_id == company_id
+        ).first()
         if not user:
             return False, "Usuário não encontrado."
 
@@ -101,11 +114,14 @@ def update_password(user_id: int, new_password: str) -> tuple[bool, str]:
         session.close()
 
 
-def toggle_user_status(user_id: int) -> tuple[bool, str]:
-    """Ativa/desativa um usuário."""
+def toggle_user_status(user_id: int, company_id: int) -> tuple[bool, str]:
+    """Ativa/desativa um usuário (validando company_id)."""
     session = SessionLocal()
     try:
-        user = session.query(User).filter(User.id == user_id).first()
+        user = session.query(User).filter(
+            User.id == user_id,
+            User.company_id == company_id
+        ).first()
         if not user:
             return False, "Usuário não encontrado."
 
@@ -120,11 +136,13 @@ def toggle_user_status(user_id: int) -> tuple[bool, str]:
         session.close()
 
 
-def get_all_users() -> list:
-    """Retorna lista de todos os usuários."""
+def get_all_users(company_id: int) -> list:
+    """Retorna lista de usuários de uma empresa."""
     session = SessionLocal()
     try:
-        users = session.query(User).order_by(User.full_name).all()
+        users = session.query(User).filter(
+            User.company_id == company_id
+        ).order_by(User.full_name).all()
         # Converte para dicionários para evitar problemas de sessão
         return [
             {
@@ -142,14 +160,18 @@ def get_all_users() -> list:
         session.close()
 
 
-def get_user_by_id(user_id: int) -> Optional[dict]:
-    """Retorna um usuário pelo ID."""
+def get_user_by_id(user_id: int, company_id: int = None) -> Optional[dict]:
+    """Retorna um usuário pelo ID (opcionalmente validando company_id)."""
     session = SessionLocal()
     try:
-        user = session.query(User).filter(User.id == user_id).first()
+        query = session.query(User).filter(User.id == user_id)
+        if company_id:
+            query = query.filter(User.company_id == company_id)
+        user = query.first()
         if user:
             return {
                 "id": user.id,
+                "company_id": user.company_id,
                 "username": user.username,
                 "full_name": user.full_name,
                 "team": user.team,
@@ -165,19 +187,24 @@ def get_user_by_id(user_id: int) -> Optional[dict]:
 # ============ Funções de Sessão Streamlit ============
 
 
-def login_user(user: User) -> None:
+def login_user(user_data: dict) -> None:
     """Salva dados do usuário na sessão do Streamlit."""
     st.session_state["logged_in"] = True
-    st.session_state["user_id"] = user.id
-    st.session_state["username"] = user.username
-    st.session_state["full_name"] = user.full_name
-    st.session_state["team"] = user.team
-    st.session_state["role"] = user.role
+    st.session_state["user_id"] = user_data["id"]
+    st.session_state["company_id"] = user_data["company_id"]
+    st.session_state["company_name"] = user_data["company_name"]
+    st.session_state["username"] = user_data["username"]
+    st.session_state["full_name"] = user_data["full_name"]
+    st.session_state["team"] = user_data["team"]
+    st.session_state["role"] = user_data["role"]
 
 
 def logout_user() -> None:
     """Remove dados do usuário da sessão do Streamlit."""
-    keys_to_remove = ["logged_in", "user_id", "username", "full_name", "team", "role"]
+    keys_to_remove = [
+        "logged_in", "user_id", "company_id", "company_name",
+        "username", "full_name", "team", "role"
+    ]
     for key in keys_to_remove:
         if key in st.session_state:
             del st.session_state[key]
@@ -188,6 +215,8 @@ def get_current_user() -> Optional[dict]:
     if st.session_state.get("logged_in"):
         return {
             "id": st.session_state.get("user_id"),
+            "company_id": st.session_state.get("company_id"),
+            "company_name": st.session_state.get("company_name"),
             "username": st.session_state.get("username"),
             "full_name": st.session_state.get("full_name"),
             "team": st.session_state.get("team"),

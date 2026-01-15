@@ -27,7 +27,7 @@ def render_admin_page():
     user = get_current_user()
 
     st.title("Painel Administrativo")
-    st.markdown(f"**Administrador:** {user['full_name']}")
+    st.markdown(f"**Administrador:** {user['full_name']} | **Empresa:** {user['company_name']}")
     st.markdown("---")
 
     # Tabs para organizar funcionalidades
@@ -37,7 +37,7 @@ def render_admin_page():
     with tab1:
         st.subheader("Usuários Cadastrados")
 
-        users = get_all_users()
+        users = get_all_users(user["company_id"])
         if users:
             # Criar DataFrame
             df = pd.DataFrame(users)
@@ -79,7 +79,7 @@ def render_admin_page():
                     action = "Desativar" if selected_data["active"] else "Ativar"
 
                     if st.button(action, type="primary", use_container_width=True):
-                        success, msg = toggle_user_status(selected_id)
+                        success, msg = toggle_user_status(selected_id, user["company_id"])
                         if success:
                             st.success(msg)
                             st.rerun()
@@ -138,6 +138,7 @@ def render_admin_page():
                         password=new_password,
                         full_name=new_full_name.strip(),
                         team=new_team,
+                        company_id=user["company_id"],
                         role=new_role,
                     )
                     if success:
@@ -150,7 +151,7 @@ def render_admin_page():
     with tab3:
         st.subheader("Alterar Senha de Usuário")
 
-        users = get_all_users()
+        users = get_all_users(user["company_id"])
         user_options = {f"{u['full_name']} ({u['username']})": u["id"] for u in users}
 
         with st.form("change_password_form"):
@@ -182,7 +183,7 @@ def render_admin_page():
                         st.error(error)
                 else:
                     user_id = user_options[selected_user]
-                    success, msg = update_password(user_id, new_pass)
+                    success, msg = update_password(user_id, new_pass, user["company_id"])
                     if success:
                         st.success(msg)
                     else:

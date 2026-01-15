@@ -20,11 +20,14 @@ from utils.file_handler import get_task_photos, get_photo_path
 from utils.export import export_to_excel, export_to_pdf
 
 
-def get_user_tasks(user_id: int, month: int = None, year: int = None) -> list:
+def get_user_tasks(user_id: int, company_id: int, month: int = None, year: int = None) -> list:
     """Retorna tarefas de um usuário com filtros opcionais."""
     session = SessionLocal()
     try:
-        query = session.query(Task).filter(Task.user_id == user_id)
+        query = session.query(Task).filter(
+            Task.user_id == user_id,
+            Task.company_id == company_id
+        )
 
         if month and year:
             query = query.filter(
@@ -59,11 +62,13 @@ def get_user_tasks(user_id: int, month: int = None, year: int = None) -> list:
         session.close()
 
 
-def get_all_tasks(month: int = None, year: int = None) -> list:
-    """Retorna todas as tarefas (para admin) com filtros opcionais."""
+def get_all_tasks(company_id: int, month: int = None, year: int = None) -> list:
+    """Retorna todas as tarefas de uma empresa (para admin) com filtros opcionais."""
     session = SessionLocal()
     try:
-        query = session.query(Task, User.full_name, User.team).join(User)
+        query = session.query(Task, User.full_name, User.team).join(User).filter(
+            Task.company_id == company_id
+        )
 
         if month and year:
             query = query.filter(
@@ -100,7 +105,7 @@ def get_all_tasks(month: int = None, year: int = None) -> list:
         session.close()
 
 
-def get_monthly_stats(user_id: int = None, year: int = None) -> pd.DataFrame:
+def get_monthly_stats(company_id: int, user_id: int = None, year: int = None) -> pd.DataFrame:
     """Retorna estatísticas mensais para gráficos."""
     session = SessionLocal()
     try:
@@ -110,7 +115,7 @@ def get_monthly_stats(user_id: int = None, year: int = None) -> pd.DataFrame:
             func.sum(Task.qtd_cto).label("total_cto"),
             func.sum(Task.qtd_caixa_emenda).label("total_caixa_emenda"),
             func.sum(Task.fibra_lancada).label("total_fibra"),
-        )
+        ).filter(Task.company_id == company_id)
 
         if user_id:
             query = query.filter(Task.user_id == user_id)
@@ -146,8 +151,8 @@ def get_monthly_stats(user_id: int = None, year: int = None) -> pd.DataFrame:
         session.close()
 
 
-def get_team_stats(month: int = None, year: int = None) -> pd.DataFrame:
-    """Retorna estatísticas por equipe."""
+def get_team_stats(company_id: int, month: int = None, year: int = None) -> pd.DataFrame:
+    """Retorna estatísticas por equipe de uma empresa."""
     session = SessionLocal()
     try:
         query = session.query(
@@ -156,7 +161,7 @@ def get_team_stats(month: int = None, year: int = None) -> pd.DataFrame:
             func.sum(Task.qtd_cto).label("total_cto"),
             func.sum(Task.qtd_caixa_emenda).label("total_caixa_emenda"),
             func.sum(Task.fibra_lancada).label("total_fibra"),
-        ).join(Task)
+        ).join(Task).filter(Task.company_id == company_id)
 
         if month and year:
             query = query.filter(
@@ -182,8 +187,8 @@ def get_team_stats(month: int = None, year: int = None) -> pd.DataFrame:
         session.close()
 
 
-def get_user_ranking(month: int = None, year: int = None) -> pd.DataFrame:
-    """Retorna ranking de usuários por produtividade."""
+def get_user_ranking(company_id: int, month: int = None, year: int = None) -> pd.DataFrame:
+    """Retorna ranking de usuários por produtividade de uma empresa."""
     session = SessionLocal()
     try:
         query = session.query(
@@ -193,7 +198,7 @@ def get_user_ranking(month: int = None, year: int = None) -> pd.DataFrame:
             func.sum(Task.qtd_cto).label("total_cto"),
             func.sum(Task.qtd_caixa_emenda).label("total_caixa_emenda"),
             func.sum(Task.fibra_lancada).label("total_fibra"),
-        ).join(Task)
+        ).join(Task).filter(Task.company_id == company_id)
 
         if month and year:
             query = query.filter(
@@ -248,7 +253,7 @@ def render_dashboard_page():
     # Métricas do usuário
     st.subheader("Minhas Métricas")
 
-    my_tasks = get_user_tasks(user["id"], selected_month, selected_year)
+    my_tasks = get_user_tasks(user["id"], user["company_id"], selected_month, selected_year)
 
     col1, col2, col3, col4 = st.columns(4)
     with col1:
@@ -265,7 +270,7 @@ def render_dashboard_page():
 
     # Gráfico mensal do usuário
     st.subheader("Evolução Mensal")
-    monthly_data = get_monthly_stats(user["id"], selected_year)
+    monthly_data = get_monthly_stats(user["company_id"], user["id"], selected_year)
 
     fig = go.Figure()
     fig.add_trace(go.Bar(name="Tarefas", x=monthly_data["Mês"], y=monthly_data["Tarefas"]))
@@ -322,7 +327,7 @@ def render_dashboard_page():
 
         # Estatísticas por equipe
         st.subheader("Estatísticas por Equipe")
-        team_stats = get_team_stats(selected_month, selected_year)
+        team_stats = get_team_stats(user["company_id"], selected_month, selected_year)
         if not team_stats.empty:
             col1, col2 = st.columns(2)
             with col1:
@@ -338,7 +343,7 @@ def render_dashboard_page():
 
         # Ranking de usuários
         st.subheader("Ranking de Produtividade")
-        ranking = get_user_ranking(selected_month, selected_year)
+        ranking = get_user_ranking(user["company_id"], selected_month, selected_year)
         if not ranking.empty:
             fig_ranking = px.bar(
                 ranking,
@@ -352,7 +357,7 @@ def render_dashboard_page():
 
         # Todas as tarefas
         st.subheader("Todas as Tarefas")
-        all_tasks = get_all_tasks(selected_month, selected_year)
+        all_tasks = get_all_tasks(user["company_id"], selected_month, selected_year)
         if all_tasks:
             df_all = pd.DataFrame(all_tasks)
             df_all["created_at"] = pd.to_datetime(df_all["created_at"]).dt.strftime("%d/%m/%Y %H:%M")
