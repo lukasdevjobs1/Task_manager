@@ -25,6 +25,7 @@ from auth.authentication import (
     delete_company,
     delete_user,
     get_users_by_company,
+    is_super_admin,
 )
 from config import EQUIPES, ROLES
 
@@ -33,13 +34,21 @@ def render_admin_page():
     """Renderiza o painel administrativo."""
     require_admin()
     user = get_current_user()
+    user_is_super_admin = is_super_admin()
 
     st.title("Painel Administrativo")
-    st.markdown(f"**Administrador:** {user['full_name']} | **Empresa:** {user['company_name']}")
+
+    if user_is_super_admin:
+        st.markdown(f"**Super Administrador:** {user['full_name']}")
+    else:
+        st.markdown(f"**Gerente:** {user['full_name']} | **Empresa:** {user['company_name']}")
     st.markdown("---")
 
-    # Tabs para organizar funcionalidades
-    tab1, tab2, tab3, tab4 = st.tabs(["Usuários", "Novo Usuário", "Alterar Senha", "Empresas"])
+    # Tabs diferentes para super admin vs admin de empresa
+    if user_is_super_admin:
+        tab1, tab2, tab3, tab4 = st.tabs(["Usuários", "Novo Usuário", "Alterar Senha", "Empresas"])
+    else:
+        tab1, tab2, tab3 = st.tabs(["Usuários", "Novo Usuário", "Alterar Senha"])
 
     # Tab 1: Lista de Usuários
     with tab1:
@@ -197,8 +206,9 @@ def render_admin_page():
                     else:
                         st.error(msg)
 
-    # Tab 4: Gestão de Empresas
-    with tab4:
+    # Tab 4: Gestão de Empresas (apenas super admin)
+    if user_is_super_admin:
+      with tab4:
         st.subheader("Gestão de Empresas")
 
         # Sub-tabs para organizar

@@ -46,6 +46,7 @@ class User(Base):
     full_name = Column(String(100), nullable=False)
     team = Column(String(20), nullable=False)  # 'fusao' ou 'infraestrutura'
     role = Column(String(20), nullable=False, default="user")  # 'admin' ou 'user'
+    is_super_admin = Column(Boolean, default=False)  # True apenas para admin geral
     active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 

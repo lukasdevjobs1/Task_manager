@@ -42,6 +42,7 @@ def authenticate_user(username: str, password: str) -> Optional[dict]:
                 "full_name": user.full_name,
                 "team": user.team,
                 "role": user.role,
+                "is_super_admin": getattr(user, 'is_super_admin', False) or False,
             }
         return None
     finally:
@@ -197,13 +198,14 @@ def login_user(user_data: dict) -> None:
     st.session_state["full_name"] = user_data["full_name"]
     st.session_state["team"] = user_data["team"]
     st.session_state["role"] = user_data["role"]
+    st.session_state["is_super_admin"] = user_data.get("is_super_admin", False)
 
 
 def logout_user() -> None:
     """Remove dados do usuário da sessão do Streamlit."""
     keys_to_remove = [
         "logged_in", "user_id", "company_id", "company_name",
-        "username", "full_name", "team", "role"
+        "username", "full_name", "team", "role", "is_super_admin"
     ]
     for key in keys_to_remove:
         if key in st.session_state:
@@ -221,6 +223,7 @@ def get_current_user() -> Optional[dict]:
             "full_name": st.session_state.get("full_name"),
             "team": st.session_state.get("team"),
             "role": st.session_state.get("role"),
+            "is_super_admin": st.session_state.get("is_super_admin", False),
         }
     return None
 
@@ -233,6 +236,11 @@ def is_logged_in() -> bool:
 def is_admin() -> bool:
     """Verifica se o usuário logado é admin."""
     return st.session_state.get("role") == "admin"
+
+
+def is_super_admin() -> bool:
+    """Verifica se o usuário logado é super admin (admin geral)."""
+    return st.session_state.get("is_super_admin", False)
 
 
 def require_login():
