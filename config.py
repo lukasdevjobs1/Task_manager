@@ -1,4 +1,5 @@
 import os
+from urllib.parse import quote_plus
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -24,7 +25,7 @@ DB_CONFIG = {
     "password": get_secret("DB_PASSWORD", "postgres"),
 }
 
-DATABASE_URL = f"postgresql://{DB_CONFIG['user']}:{DB_CONFIG['password']}@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['database']}"
+DATABASE_URL = f"postgresql://{DB_CONFIG['user']}:{quote_plus(DB_CONFIG['password'])}@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['database']}"
 
 # Configurações de Upload
 UPLOAD_FOLDER = get_secret("UPLOAD_FOLDER", "uploads")
