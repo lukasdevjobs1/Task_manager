@@ -52,7 +52,7 @@ def render_login_page():
                     user = authenticate_user(username, password)
                     if user:
                         login_user(user)
-                        st.success(f"Bem-vindo, {user.full_name}!")
+                        st.success(f"Bem-vindo, {user['full_name']}!")
                         st.rerun()
                     else:
                         st.error("Usuário ou senha incorretos.")
