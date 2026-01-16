@@ -1,26 +1,42 @@
 """
-Gerenciamento de upload e download de fotos.
+Gerenciamento de upload e download de fotos usando Supabase Storage.
 """
 
-import os
 import uuid
 from datetime import datetime
 from typing import List, Optional
 import sys
+import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from config import UPLOAD_FOLDER, MAX_FILE_SIZE_BYTES, MAX_FILES_PER_TASK, ALLOWED_EXTENSIONS
+from config import (
+    SUPABASE_URL,
+    SUPABASE_KEY,
+    SUPABASE_BUCKET,
+    MAX_FILE_SIZE_BYTES,
+    MAX_FILES_PER_TASK,
+    ALLOWED_EXTENSIONS,
+)
 from database.connection import SessionLocal
 from database.models import TaskPhoto
 
+# Cliente Supabase (inicializado sob demanda)
+_supabase_client = None
 
-def get_upload_folder() -> str:
-    """Retorna o caminho absoluto da pasta de uploads."""
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    upload_path = os.path.join(base_dir, UPLOAD_FOLDER)
-    os.makedirs(upload_path, exist_ok=True)
-    return upload_path
+
+def get_supabase_client():
+    """Retorna o cliente Supabase, inicializando se necessário."""
+    global _supabase_client
+    if _supabase_client is None:
+        if not SUPABASE_URL or not SUPABASE_KEY:
+            raise ValueError(
+                "SUPABASE_URL e SUPABASE_KEY devem estar configurados. "
+                "Verifique o arquivo secrets.toml ou variáveis de ambiente."
+            )
+        from supabase import create_client
+        _supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    return _supabase_client
 
 
 def allowed_file(filename: str) -> bool:
@@ -28,23 +44,41 @@ def allowed_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-def generate_unique_filename(original_name: str) -> str:
-    """Gera um nome de arquivo único mantendo a extensão original."""
+def generate_unique_filename(original_name: str, company_id: int = None) -> str:
+    """
+    Gera um nome de arquivo único mantendo a extensão original.
+    Inclui company_id no path para organização.
+    """
     ext = original_name.rsplit(".", 1)[1].lower() if "." in original_name else "jpg"
     unique_id = uuid.uuid4().hex[:12]
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    if company_id:
+        return f"company_{company_id}/{timestamp}_{unique_id}.{ext}"
     return f"{timestamp}_{unique_id}.{ext}"
 
 
+def get_content_type(filename: str) -> str:
+    """Retorna o content-type baseado na extensão do arquivo."""
+    ext = filename.rsplit(".", 1)[1].lower() if "." in filename else ""
+    content_types = {
+        "jpg": "image/jpeg",
+        "jpeg": "image/jpeg",
+        "png": "image/png",
+    }
+    return content_types.get(ext, "application/octet-stream")
+
+
 def save_uploaded_files(
-    uploaded_files: list, task_id: int
+    uploaded_files: list, task_id: int, company_id: int = None
 ) -> tuple[bool, str, List[dict]]:
     """
-    Salva os arquivos enviados no sistema de arquivos e registra no banco.
+    Salva os arquivos enviados no Supabase Storage e registra no banco.
 
     Args:
         uploaded_files: Lista de arquivos do Streamlit file_uploader
         task_id: ID da tarefa associada
+        company_id: ID da empresa (para organização de pastas)
 
     Returns:
         (sucesso, mensagem, lista de fotos salvas)
@@ -60,11 +94,12 @@ def save_uploaded_files(
             [],
         )
 
-    upload_folder = get_upload_folder()
     saved_photos = []
     session = SessionLocal()
 
     try:
+        supabase = get_supabase_client()
+
         for file in uploaded_files:
             # Validar extensão
             if not allowed_file(file.name):
@@ -83,12 +118,19 @@ def save_uploaded_files(
                     [],
                 )
 
-            # Gerar nome único e salvar arquivo
-            unique_name = generate_unique_filename(file.name)
-            file_path = os.path.join(upload_folder, unique_name)
+            # Gerar nome único
+            unique_name = generate_unique_filename(file.name, company_id)
+            content_type = get_content_type(file.name)
 
-            with open(file_path, "wb") as f:
-                f.write(file.getbuffer())
+            # Ler conteúdo do arquivo
+            file_content = file.getvalue()
+
+            # Upload para Supabase Storage
+            response = supabase.storage.from_(SUPABASE_BUCKET).upload(
+                path=unique_name,
+                file=file_content,
+                file_options={"content-type": content_type}
+            )
 
             # Registrar no banco
             photo = TaskPhoto(
@@ -111,50 +153,105 @@ def save_uploaded_files(
 
     except Exception as e:
         session.rollback()
-        # Limpar arquivos já salvos em caso de erro
-        for photo in saved_photos:
-            try:
-                os.remove(os.path.join(upload_folder, photo["file_path"]))
-            except:
-                pass
+        # Limpar arquivos já salvos no Supabase em caso de erro
+        try:
+            supabase = get_supabase_client()
+            for photo in saved_photos:
+                supabase.storage.from_(SUPABASE_BUCKET).remove([photo["file_path"]])
+        except:
+            pass
         return False, f"Erro ao salvar fotos: {str(e)}", []
     finally:
         session.close()
 
 
 def get_task_photos(task_id: int) -> List[dict]:
-    """Retorna lista de fotos de uma tarefa."""
+    """Retorna lista de fotos de uma tarefa com URLs públicas."""
     session = SessionLocal()
     try:
         photos = session.query(TaskPhoto).filter(TaskPhoto.task_id == task_id).all()
-        return [
-            {
+        result = []
+
+        for p in photos:
+            photo_data = {
                 "id": p.id,
                 "file_path": p.file_path,
                 "original_name": p.original_name,
                 "file_size": p.file_size,
                 "uploaded_at": p.uploaded_at,
-                "full_path": os.path.join(get_upload_folder(), p.file_path),
+                "public_url": get_photo_url(p.file_path),
             }
-            for p in photos
-        ]
+            result.append(photo_data)
+
+        return result
     finally:
         session.close()
 
 
+def get_photo_url(file_path: str, expires_in: int = 3600) -> Optional[str]:
+    """
+    Retorna a URL pública ou assinada de uma foto no Supabase Storage.
+
+    Args:
+        file_path: Caminho do arquivo no bucket
+        expires_in: Tempo de expiração em segundos (padrão: 1 hora)
+
+    Returns:
+        URL da foto ou None em caso de erro
+    """
+    try:
+        supabase = get_supabase_client()
+        # Gera URL assinada (funciona para buckets privados e públicos)
+        response = supabase.storage.from_(SUPABASE_BUCKET).create_signed_url(
+            path=file_path,
+            expires_in=expires_in
+        )
+        return response.get("signedURL") or response.get("signedUrl")
+    except Exception as e:
+        print(f"Erro ao gerar URL da foto: {e}")
+        return None
+
+
+def get_public_url(file_path: str) -> str:
+    """
+    Retorna a URL pública direta de uma foto (para buckets públicos).
+
+    Args:
+        file_path: Caminho do arquivo no bucket
+
+    Returns:
+        URL pública da foto
+    """
+    try:
+        supabase = get_supabase_client()
+        response = supabase.storage.from_(SUPABASE_BUCKET).get_public_url(file_path)
+        return response
+    except Exception as e:
+        print(f"Erro ao gerar URL pública: {e}")
+        return ""
+
+
 def delete_task_photos(task_id: int) -> tuple[bool, str]:
-    """Remove todas as fotos de uma tarefa."""
+    """Remove todas as fotos de uma tarefa do Supabase Storage e banco."""
     session = SessionLocal()
     try:
         photos = session.query(TaskPhoto).filter(TaskPhoto.task_id == task_id).all()
-        upload_folder = get_upload_folder()
 
+        if not photos:
+            return True, "Nenhuma foto para remover."
+
+        # Coletar paths para deletar
+        file_paths = [photo.file_path for photo in photos]
+
+        # Remover do Supabase Storage
+        try:
+            supabase = get_supabase_client()
+            supabase.storage.from_(SUPABASE_BUCKET).remove(file_paths)
+        except Exception as e:
+            print(f"Aviso: Erro ao remover arquivos do storage: {e}")
+
+        # Remover registros do banco
         for photo in photos:
-            # Remove arquivo físico
-            file_path = os.path.join(upload_folder, photo.file_path)
-            if os.path.exists(file_path):
-                os.remove(file_path)
-            # Remove registro do banco
             session.delete(photo)
 
         session.commit()
@@ -166,12 +263,53 @@ def delete_task_photos(task_id: int) -> tuple[bool, str]:
         session.close()
 
 
-def get_photo_path(filename: str) -> Optional[str]:
-    """Retorna o caminho completo de uma foto."""
-    full_path = os.path.join(get_upload_folder(), filename)
-    if os.path.exists(full_path):
-        return full_path
-    return None
+def delete_single_photo(photo_id: int) -> tuple[bool, str]:
+    """Remove uma única foto pelo ID."""
+    session = SessionLocal()
+    try:
+        photo = session.query(TaskPhoto).filter(TaskPhoto.id == photo_id).first()
+
+        if not photo:
+            return False, "Foto não encontrada."
+
+        file_path = photo.file_path
+
+        # Remover do Supabase Storage
+        try:
+            supabase = get_supabase_client()
+            supabase.storage.from_(SUPABASE_BUCKET).remove([file_path])
+        except Exception as e:
+            print(f"Aviso: Erro ao remover arquivo do storage: {e}")
+
+        # Remover registro do banco
+        session.delete(photo)
+        session.commit()
+
+        return True, "Foto removida com sucesso."
+    except Exception as e:
+        session.rollback()
+        return False, f"Erro ao remover foto: {str(e)}"
+    finally:
+        session.close()
+
+
+def download_photo(file_path: str) -> Optional[bytes]:
+    """
+    Faz download do conteúdo de uma foto do Supabase Storage.
+
+    Args:
+        file_path: Caminho do arquivo no bucket
+
+    Returns:
+        Conteúdo do arquivo em bytes ou None em caso de erro
+    """
+    try:
+        supabase = get_supabase_client()
+        response = supabase.storage.from_(SUPABASE_BUCKET).download(file_path)
+        return response
+    except Exception as e:
+        print(f"Erro ao baixar foto: {e}")
+        return None
 
 
 def format_file_size(size_bytes: int) -> str:
@@ -184,3 +322,28 @@ def format_file_size(size_bytes: int) -> str:
         return f"{size_bytes / (1024 * 1024):.1f} MB"
     else:
         return f"{size_bytes / (1024 * 1024 * 1024):.2f} GB"
+
+
+def ensure_bucket_exists() -> bool:
+    """
+    Verifica se o bucket existe e tenta criar se não existir.
+    Retorna True se o bucket está disponível.
+    """
+    try:
+        supabase = get_supabase_client()
+        # Listar buckets existentes
+        buckets = supabase.storage.list_buckets()
+        bucket_names = [b.name for b in buckets]
+
+        if SUPABASE_BUCKET not in bucket_names:
+            # Criar bucket (público para facilitar acesso às imagens)
+            supabase.storage.create_bucket(
+                SUPABASE_BUCKET,
+                options={"public": True}
+            )
+            print(f"Bucket '{SUPABASE_BUCKET}' criado com sucesso.")
+
+        return True
+    except Exception as e:
+        print(f"Erro ao verificar/criar bucket: {e}")
+        return False

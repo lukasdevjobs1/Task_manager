@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from auth.authentication import require_login, get_current_user, is_admin
 from database.connection import SessionLocal
 from database.models import Task, User
-from utils.file_handler import get_task_photos, get_photo_path
+from utils.file_handler import get_task_photos, get_photo_url, download_photo
 from utils.export import export_to_excel, export_to_pdf
 
 

@@ -167,8 +167,10 @@ def render_register_task_page():
                     session.add(task)
                     session.commit()
 
-                    # Salvar fotos
-                    success, msg, _ = save_uploaded_files(uploaded_files, task.id)
+                    # Salvar fotos no Supabase Storage
+                    success, msg, _ = save_uploaded_files(
+                        uploaded_files, task.id, user["company_id"]
+                    )
 
                     if success:
                         st.success("Tarefa registrada com sucesso!")

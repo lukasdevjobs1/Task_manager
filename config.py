@@ -27,6 +27,11 @@ DB_CONFIG = {
 
 DATABASE_URL = f"postgresql://{DB_CONFIG['user']}:{quote_plus(DB_CONFIG['password'])}@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['database']}"
 
+# Configurações do Supabase Storage
+SUPABASE_URL = get_secret("SUPABASE_URL", "")
+SUPABASE_KEY = get_secret("SUPABASE_KEY", "")
+SUPABASE_BUCKET = get_secret("SUPABASE_BUCKET", "task-photos")
+
 # Configurações de Upload
 UPLOAD_FOLDER = get_secret("UPLOAD_FOLDER", "uploads")
 MAX_FILE_SIZE_GB = float(get_secret("MAX_FILE_SIZE_GB", "1"))
