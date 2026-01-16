@@ -301,10 +301,18 @@ def render_dashboard_page():
             options=list(task_options.keys()),
             key="select_task_details"
         )
-        if st.button("📋 Ver Detalhes / Editar / Excluir", key="btn_view_details", use_container_width=True, type="primary"):
+
+        def go_to_task_details():
             st.session_state["selected_task_id"] = task_options[selected_task_label]
             st.session_state["current_page"] = "task_details"
-            st.rerun()
+
+        st.button(
+            "📋 Ver Detalhes / Editar / Excluir",
+            key="btn_view_details",
+            use_container_width=True,
+            type="primary",
+            on_click=go_to_task_details
+        )
 
         # Exportação
         st.subheader("Exportar Relatório")
@@ -397,10 +405,18 @@ def render_dashboard_page():
                 options=list(admin_task_options.keys()),
                 key="select_admin_task_details"
             )
-            if st.button("📋 Ver Detalhes / Editar / Excluir", key="btn_admin_view_details", use_container_width=True, type="primary"):
+
+            def go_to_admin_task_details():
                 st.session_state["selected_task_id"] = admin_task_options[selected_admin_task_label]
                 st.session_state["current_page"] = "task_details"
-                st.rerun()
+
+            st.button(
+                "📋 Ver Detalhes / Editar / Excluir",
+                key="btn_admin_view_details",
+                use_container_width=True,
+                type="primary",
+                on_click=go_to_admin_task_details
+            )
 
             # Exportação admin
             st.subheader("Exportar Relatório Geral")
