@@ -21,6 +21,7 @@ from views.login import render_login_page
 from views.register_task import render_register_task_page
 from views.dashboard import render_dashboard_page
 from views.admin import render_admin_page
+from views.task_details import render_task_details_page
 
 
 def configure_page():
@@ -261,6 +262,8 @@ def main():
         render_register_task_page()
     elif current_page == "dashboard":
         render_dashboard_page()
+    elif current_page == "task_details":
+        render_task_details_page()
     elif current_page == "admin" and is_admin():
         render_admin_page()
     else:
