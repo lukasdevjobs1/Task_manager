@@ -258,6 +258,9 @@ def main():
     # Renderiza página atual
     current_page = st.session_state.get("current_page", "dashboard")
 
+    # Debug: mostra página atual (remover depois)
+    st.sidebar.caption(f"Página: {current_page}")
+
     if current_page == "register":
         render_register_task_page()
     elif current_page == "dashboard":
