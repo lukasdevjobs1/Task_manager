@@ -293,7 +293,7 @@ def render_dashboard_page():
         # Ver Detalhes da Tarefa
         st.subheader("Ver Detalhes")
         task_options = {
-            f"{t['created_at']} - {t['empresa']} ({t['bairro']})": t["id"]
+            f"{t['created_at'].strftime('%d/%m/%Y %H:%M')} - {t['empresa']} ({t['bairro']})": t["id"]
             for t in my_tasks
         }
         col1, col2 = st.columns([3, 1])
@@ -304,9 +304,7 @@ def render_dashboard_page():
                 key="select_task_details"
             )
         with col2:
-            st.write("")  # Espaçamento
-            st.write("")
-            if st.button("📋 Ver Detalhes", key="btn_view_details", use_container_width=True):
+            if st.button("📋 Ver Detalhes", key="btn_view_details", use_container_width=True, type="primary"):
                 if selected_task_label:
                     st.session_state["selected_task_id"] = task_options[selected_task_label]
                     st.session_state["current_page"] = "task_details"
@@ -395,7 +393,7 @@ def render_dashboard_page():
             # Ver Detalhes das Tarefas (Admin)
             st.subheader("Ver Detalhes (Admin)")
             admin_task_options = {
-                f"{t['created_at']} - {t['usuario']} - {t['empresa']} ({t['bairro']})": t["id"]
+                f"{t['created_at'].strftime('%d/%m/%Y %H:%M')} - {t['usuario']} - {t['empresa']} ({t['bairro']})": t["id"]
                 for t in all_tasks
             }
             col1, col2 = st.columns([3, 1])
@@ -406,9 +404,7 @@ def render_dashboard_page():
                     key="select_admin_task_details"
                 )
             with col2:
-                st.write("")  # Espaçamento
-                st.write("")
-                if st.button("📋 Ver Detalhes", key="btn_admin_view_details", use_container_width=True):
+                if st.button("📋 Ver Detalhes", key="btn_admin_view_details", use_container_width=True, type="primary"):
                     if selected_admin_task_label:
                         st.session_state["selected_task_id"] = admin_task_options[selected_admin_task_label]
                         st.session_state["current_page"] = "task_details"
