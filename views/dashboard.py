@@ -296,19 +296,15 @@ def render_dashboard_page():
             f"{t['created_at'].strftime('%d/%m/%Y %H:%M')} - {t['empresa']} ({t['bairro']})": t["id"]
             for t in my_tasks
         }
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            selected_task_label = st.selectbox(
-                "Selecione uma tarefa",
-                options=list(task_options.keys()),
-                key="select_task_details"
-            )
-        with col2:
-            if st.button("📋 Ver Detalhes", key="btn_view_details", use_container_width=True, type="primary"):
-                if selected_task_label:
-                    st.session_state["selected_task_id"] = task_options[selected_task_label]
-                    st.session_state["current_page"] = "task_details"
-                    st.rerun()
+        selected_task_label = st.selectbox(
+            "Selecione uma tarefa para ver detalhes",
+            options=list(task_options.keys()),
+            key="select_task_details"
+        )
+        if st.button("📋 Ver Detalhes / Editar / Excluir", key="btn_view_details", use_container_width=True, type="primary"):
+            st.session_state["selected_task_id"] = task_options[selected_task_label]
+            st.session_state["current_page"] = "task_details"
+            st.rerun()
 
         # Exportação
         st.subheader("Exportar Relatório")
@@ -396,19 +392,15 @@ def render_dashboard_page():
                 f"{t['created_at'].strftime('%d/%m/%Y %H:%M')} - {t['usuario']} - {t['empresa']} ({t['bairro']})": t["id"]
                 for t in all_tasks
             }
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                selected_admin_task_label = st.selectbox(
-                    "Selecione uma tarefa",
-                    options=list(admin_task_options.keys()),
-                    key="select_admin_task_details"
-                )
-            with col2:
-                if st.button("📋 Ver Detalhes", key="btn_admin_view_details", use_container_width=True, type="primary"):
-                    if selected_admin_task_label:
-                        st.session_state["selected_task_id"] = admin_task_options[selected_admin_task_label]
-                        st.session_state["current_page"] = "task_details"
-                        st.rerun()
+            selected_admin_task_label = st.selectbox(
+                "Selecione uma tarefa para ver detalhes",
+                options=list(admin_task_options.keys()),
+                key="select_admin_task_details"
+            )
+            if st.button("📋 Ver Detalhes / Editar / Excluir", key="btn_admin_view_details", use_container_width=True, type="primary"):
+                st.session_state["selected_task_id"] = admin_task_options[selected_admin_task_label]
+                st.session_state["current_page"] = "task_details"
+                st.rerun()
 
             # Exportação admin
             st.subheader("Exportar Relatório Geral")
