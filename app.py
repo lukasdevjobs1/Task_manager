@@ -207,10 +207,15 @@ def render_sidebar():
         # Obtém página atual
         current_page = st.session_state.get("current_page", "dashboard")
 
-        # Encontra índice da página atual
+        # Páginas especiais que não estão no menu (como task_details)
+        special_pages = ["task_details"]
+        is_special_page = current_page in special_pages
+
+        # Encontra índice da página atual (ou usa dashboard se for página especial)
         current_index = 0
+        display_page = "dashboard" if is_special_page else current_page
         for i, option in enumerate(menu_options):
-            if page_map.get(option) == current_page:
+            if page_map.get(option) == display_page:
                 current_index = i
                 break
 
@@ -222,9 +227,14 @@ def render_sidebar():
             label_visibility="collapsed",
         )
 
-        # Atualiza página se mudou
+        # Atualiza página se mudou (mas só se o usuário realmente clicou em uma opção diferente)
         new_page = page_map.get(selected, "dashboard")
-        if new_page != current_page:
+        # Se está em página especial, só muda se o usuário escolheu algo diferente do dashboard
+        if is_special_page:
+            if new_page != "dashboard":
+                st.session_state["current_page"] = new_page
+                st.rerun()
+        elif new_page != current_page:
             st.session_state["current_page"] = new_page
             st.rerun()
 
