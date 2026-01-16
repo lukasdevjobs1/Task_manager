@@ -291,6 +291,38 @@ def render_dashboard_page():
         df_display.columns = ["Data/Hora", "Empresa", "Bairro", "CTOs", "Caixas Emenda", "Fibra (m)"]
         st.dataframe(df_display, use_container_width=True, hide_index=True)
 
+        # Ver Fotos das Tarefas
+        st.subheader("Ver Fotos")
+        task_options = {
+            f"{t['created_at']} - {t['empresa']} ({t['bairro']})": t["id"]
+            for t in my_tasks
+        }
+        selected_task_label = st.selectbox(
+            "Selecione uma tarefa para ver as fotos",
+            options=list(task_options.keys()),
+            key="select_task_photos"
+        )
+
+        if selected_task_label:
+            selected_task_id = task_options[selected_task_label]
+            photos = get_task_photos(selected_task_id)
+
+            if photos:
+                st.write(f"**{len(photos)} foto(s) encontrada(s)**")
+                cols = st.columns(min(len(photos), 3))
+                for idx, photo in enumerate(photos):
+                    with cols[idx % 3]:
+                        if photo.get("public_url"):
+                            st.image(
+                                photo["public_url"],
+                                caption=photo["original_name"],
+                                use_container_width=True
+                            )
+                        else:
+                            st.warning(f"Erro ao carregar: {photo['original_name']}")
+            else:
+                st.info("Nenhuma foto encontrada para esta tarefa.")
+
         # Exportação
         st.subheader("Exportar Relatório")
         col1, col2 = st.columns(2)
@@ -370,6 +402,38 @@ def render_dashboard_page():
                 "CTOs", "Caixas Emenda", "Fibra (m)"
             ]
             st.dataframe(df_display, use_container_width=True, hide_index=True)
+
+            # Ver Fotos das Tarefas (Admin)
+            st.subheader("Ver Fotos (Admin)")
+            admin_task_options = {
+                f"{t['created_at']} - {t['usuario']} - {t['empresa']} ({t['bairro']})": t["id"]
+                for t in all_tasks
+            }
+            selected_admin_task_label = st.selectbox(
+                "Selecione uma tarefa para ver as fotos",
+                options=list(admin_task_options.keys()),
+                key="select_admin_task_photos"
+            )
+
+            if selected_admin_task_label:
+                selected_admin_task_id = admin_task_options[selected_admin_task_label]
+                admin_photos = get_task_photos(selected_admin_task_id)
+
+                if admin_photos:
+                    st.write(f"**{len(admin_photos)} foto(s) encontrada(s)**")
+                    admin_cols = st.columns(min(len(admin_photos), 3))
+                    for idx, photo in enumerate(admin_photos):
+                        with admin_cols[idx % 3]:
+                            if photo.get("public_url"):
+                                st.image(
+                                    photo["public_url"],
+                                    caption=photo["original_name"],
+                                    use_container_width=True
+                                )
+                            else:
+                                st.warning(f"Erro ao carregar: {photo['original_name']}")
+                else:
+                    st.info("Nenhuma foto encontrada para esta tarefa.")
 
             # Exportação admin
             st.subheader("Exportar Relatório Geral")
