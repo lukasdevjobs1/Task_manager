@@ -227,7 +227,7 @@ def render_task_details_page():
                     )
                 with col2:
                     fibra_lancada = st.number_input(
-                        "Fibra Lançada (m)", value=task["fibra_lancada"], min_value=0.0, step=0.5
+                        "Fibra Lançada (m)", value=float(task["fibra_lancada"]), min_value=0.0, step=0.5
                     )
 
                 observacoes = st.text_area("Observações", value=task["observacoes"] or "")
