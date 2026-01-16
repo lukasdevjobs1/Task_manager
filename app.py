@@ -29,13 +29,14 @@ def configure_page():
         page_title="Sistema de Tarefas ISP",
         page_icon="📋",
         layout="wide",
-        initial_sidebar_state="expanded",
+        initial_sidebar_state="auto",  # Colapsa automaticamente em mobile
     )
 
-    # CSS customizado
+    # CSS customizado com otimizações para mobile
     st.markdown(
         """
         <style>
+        /* Estilos gerais */
         .main {
             padding: 1rem;
         }
@@ -47,6 +48,118 @@ def configure_page():
         }
         section[data-testid="stSidebar"] {
             background-color: #f8f9fa;
+        }
+
+        /* Otimizações para Mobile */
+        @media (max-width: 768px) {
+            /* Reduz padding geral */
+            .main {
+                padding: 0.5rem;
+            }
+
+            /* Ajusta métricas para caber em tela menor */
+            div[data-testid="stMetricValue"] {
+                font-size: 1.2rem;
+            }
+            div[data-testid="stMetricLabel"] {
+                font-size: 0.8rem;
+            }
+
+            /* Melhora visualização de tabelas */
+            .stDataFrame {
+                font-size: 0.75rem;
+            }
+
+            /* Ajusta títulos */
+            h1 {
+                font-size: 1.5rem !important;
+            }
+            h2 {
+                font-size: 1.25rem !important;
+            }
+            h3 {
+                font-size: 1.1rem !important;
+            }
+
+            /* Botões mais acessíveis em touch */
+            .stButton > button {
+                min-height: 48px;
+                font-size: 1rem;
+            }
+
+            /* Inputs mais acessíveis */
+            .stTextInput > div > div > input,
+            .stSelectbox > div > div > div,
+            .stNumberInput > div > div > input {
+                min-height: 44px;
+                font-size: 16px !important; /* Previne zoom no iOS */
+            }
+
+            /* Checkboxes maiores */
+            .stCheckbox {
+                padding: 8px 0;
+            }
+
+            /* Sidebar mais compacta */
+            section[data-testid="stSidebar"] > div {
+                padding: 1rem 0.5rem;
+            }
+
+            /* Imagens responsivas */
+            .stImage {
+                max-width: 100%;
+            }
+
+            /* Cards de métricas empilhados */
+            div[data-testid="column"] {
+                min-width: 45% !important;
+            }
+
+            /* Expanders mais acessíveis */
+            .streamlit-expanderHeader {
+                font-size: 1rem;
+                padding: 0.75rem;
+            }
+
+            /* File uploader otimizado */
+            .stFileUploader > div {
+                padding: 1rem;
+            }
+        }
+
+        /* Telas muito pequenas (smartphones) */
+        @media (max-width: 480px) {
+            .main {
+                padding: 0.25rem;
+            }
+
+            h1 {
+                font-size: 1.3rem !important;
+            }
+
+            /* Métricas em coluna única */
+            div[data-testid="column"] {
+                min-width: 100% !important;
+            }
+
+            /* Tabelas com scroll horizontal */
+            .stDataFrame > div {
+                overflow-x: auto;
+            }
+        }
+
+        /* Melhoria de touch targets */
+        @media (hover: none) and (pointer: coarse) {
+            .stButton > button,
+            .stDownloadButton > button {
+                min-height: 48px;
+                padding: 12px 24px;
+            }
+
+            .stRadio > div > label {
+                padding: 12px 8px;
+                min-height: 44px;
+            }
         }
         </style>
         """,
