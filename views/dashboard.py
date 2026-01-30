@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from auth.authentication import require_login, get_current_user, is_admin
 from database.connection import SessionLocal
-from database.models import Task, User
+from database.models import Task, User, TaskAssignment
 from utils.export import export_to_excel, export_to_pdf
 
 
@@ -226,6 +226,96 @@ def get_user_ranking(company_id: int, month: int = None, year: int = None) -> pd
         session.close()
 
 
+def get_assigned_to_me(user_id: int, company_id: int) -> list:
+    """Retorna tarefas atribuídas ao usuário."""
+    session = SessionLocal()
+    try:
+        assignments = session.query(TaskAssignment, User.full_name).join(
+            User, TaskAssignment.assigned_by == User.id
+        ).filter(
+            TaskAssignment.assigned_to == user_id,
+            TaskAssignment.company_id == company_id,
+        ).order_by(TaskAssignment.created_at.desc()).all()
+        return [
+            {
+                "id": a.id,
+                "title": a.title,
+                "description": a.description,
+                "address": a.address,
+                "status": a.status,
+                "priority": a.priority,
+                "due_date": a.due_date,
+                "created_at": a.created_at,
+                "assigned_by_name": name,
+            }
+            for a, name in assignments
+        ]
+    finally:
+        session.close()
+
+
+def get_assigned_by_me(user_id: int, company_id: int) -> list:
+    """Retorna tarefas que o admin atribuiu."""
+    session = SessionLocal()
+    try:
+        assignments = session.query(TaskAssignment, User.full_name).join(
+            User, TaskAssignment.assigned_to == User.id
+        ).filter(
+            TaskAssignment.assigned_by == user_id,
+            TaskAssignment.company_id == company_id,
+        ).order_by(TaskAssignment.created_at.desc()).all()
+        return [
+            {
+                "id": a.id,
+                "title": a.title,
+                "description": a.description,
+                "address": a.address,
+                "status": a.status,
+                "priority": a.priority,
+                "due_date": a.due_date,
+                "created_at": a.created_at,
+                "assigned_to_name": name,
+            }
+            for a, name in assignments
+        ]
+    finally:
+        session.close()
+
+
+def render_assignment_card(assignment: dict, show_assignee: bool = False):
+    """Renderiza um card de tarefa atribuída."""
+    status_labels = {
+        "pending": ("🟡", "Pendente"),
+        "in_progress": ("🔵", "Em Andamento"),
+        "completed": ("🟢", "Concluída"),
+    }
+    priority_labels = {
+        "low": "Baixa",
+        "medium": "Média",
+        "high": "Alta",
+        "urgent": "Urgente",
+    }
+
+    icon, status_text = status_labels.get(assignment["status"], ("⚪", assignment["status"]))
+    priority_text = priority_labels.get(assignment["priority"], assignment["priority"])
+
+    col1, col2, col3 = st.columns([4, 2, 1])
+    with col1:
+        st.markdown(f"**{icon} {assignment['title']}**")
+        if show_assignee:
+            st.caption(f"Para: {assignment.get('assigned_to_name', '')}")
+        else:
+            st.caption(f"De: {assignment.get('assigned_by_name', '')}")
+    with col2:
+        st.caption(f"Prioridade: {priority_text}")
+        st.caption(f"Status: {status_text}")
+    with col3:
+        if st.button("Ver", key=f"view_assign_{assignment['id']}"):
+            st.session_state["selected_assignment_id"] = assignment["id"]
+            st.session_state["current_page"] = "assignment_details"
+            st.rerun()
+
+
 def render_dashboard_page():
     """Renderiza a página do dashboard."""
     require_login()
@@ -337,6 +427,44 @@ def render_dashboard_page():
     else:
         st.info("Nenhuma tarefa encontrada no período selecionado.")
 
+    # Seção: Tarefas Atribuídas a Mim
+    st.markdown("---")
+    st.header("Tarefas Atribuídas a Mim")
+
+    my_assignments = get_assigned_to_me(user["id"], user["company_id"])
+    if my_assignments:
+        # Filtros de status
+        status_filter = st.selectbox(
+            "Filtrar por status",
+            ["Todos", "Pendente", "Em Andamento", "Concluída"],
+            key="filter_my_assignments",
+        )
+        status_map = {"Pendente": "pending", "Em Andamento": "in_progress", "Concluída": "completed"}
+        filtered = my_assignments
+        if status_filter != "Todos":
+            filtered = [a for a in my_assignments if a["status"] == status_map[status_filter]]
+
+        if filtered:
+            for assignment in filtered:
+                render_assignment_card(assignment, show_assignee=False)
+                st.markdown("---")
+        else:
+            st.info(f"Nenhuma tarefa com status '{status_filter}'.")
+
+        # Métricas
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            pending = len([a for a in my_assignments if a["status"] == "pending"])
+            st.metric("Pendentes", pending)
+        with col2:
+            in_progress = len([a for a in my_assignments if a["status"] == "in_progress"])
+            st.metric("Em Andamento", in_progress)
+        with col3:
+            completed = len([a for a in my_assignments if a["status"] == "completed"])
+            st.metric("Concluídas", completed)
+    else:
+        st.info("Nenhuma tarefa atribuída a você.")
+
     # Seção Admin - Visão Geral
     if is_admin():
         st.markdown("---")
@@ -371,6 +499,27 @@ def render_dashboard_page():
             )
             st.plotly_chart(fig_ranking, use_container_width=True)
             st.dataframe(ranking, use_container_width=True, hide_index=True)
+
+        # Tarefas que eu atribuí
+        st.subheader("Tarefas que Atribuí")
+        my_created_assignments = get_assigned_by_me(user["id"], user["company_id"])
+        if my_created_assignments:
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                a_pending = len([a for a in my_created_assignments if a["status"] == "pending"])
+                st.metric("Pendentes", a_pending)
+            with col2:
+                a_in_progress = len([a for a in my_created_assignments if a["status"] == "in_progress"])
+                st.metric("Em Andamento", a_in_progress)
+            with col3:
+                a_completed = len([a for a in my_created_assignments if a["status"] == "completed"])
+                st.metric("Concluídas", a_completed)
+
+            for assignment in my_created_assignments:
+                render_assignment_card(assignment, show_assignee=True)
+                st.markdown("---")
+        else:
+            st.info("Você ainda não atribuiu nenhuma tarefa.")
 
         # Todas as tarefas
         st.subheader("Todas as Tarefas")

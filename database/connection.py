@@ -1,11 +1,12 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from contextlib import contextmanager
+import psycopg2
 import sys
 import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import DATABASE_URL
+from config import DATABASE_URL, DB_CONFIG
 
 engine = create_engine(
     DATABASE_URL,
@@ -19,6 +20,21 @@ engine = create_engine(
     }
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+def get_connection():
+    """Retorna uma conexão psycopg2 para operações diretas."""
+    try:
+        return psycopg2.connect(
+            host=DB_CONFIG["host"],
+            port=DB_CONFIG["port"],
+            database=DB_CONFIG["database"],
+            user=DB_CONFIG["user"],
+            password=DB_CONFIG["password"]
+        )
+    except Exception as e:
+        print(f"Erro ao conectar: {e}")
+        return None
 
 
 def get_engine():

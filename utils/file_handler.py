@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import (
     SUPABASE_URL,
     SUPABASE_KEY,
+    SUPABASE_SERVICE_KEY,
     SUPABASE_BUCKET,
     MAX_FILE_SIZE_BYTES,
     MAX_FILES_PER_TASK,
@@ -21,12 +22,13 @@ from config import (
 from database.connection import SessionLocal
 from database.models import TaskPhoto
 
-# Cliente Supabase (inicializado sob demanda)
+# Clientes Supabase (inicializados sob demanda)
 _supabase_client = None
+_supabase_service_client = None
 
 
 def get_supabase_client():
-    """Retorna o cliente Supabase, inicializando se necessário."""
+    """Retorna o cliente Supabase (anon key) para leitura."""
     global _supabase_client
     if _supabase_client is None:
         if not SUPABASE_URL or not SUPABASE_KEY:
@@ -37,6 +39,21 @@ def get_supabase_client():
         from supabase import create_client
         _supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
     return _supabase_client
+
+
+def get_supabase_service_client():
+    """Retorna o cliente Supabase com service_role key para operações server-side (upload/delete).
+    Isso contorna as políticas de RLS que bloqueiam a anon key."""
+    global _supabase_service_client
+    if _supabase_service_client is None:
+        key = SUPABASE_SERVICE_KEY or SUPABASE_KEY
+        if not SUPABASE_URL or not key:
+            raise ValueError(
+                "SUPABASE_URL e SUPABASE_SERVICE_KEY (ou SUPABASE_KEY) devem estar configurados."
+            )
+        from supabase import create_client
+        _supabase_service_client = create_client(SUPABASE_URL, key)
+    return _supabase_service_client
 
 
 def allowed_file(filename: str) -> bool:
@@ -98,7 +115,7 @@ def save_uploaded_files(
     session = SessionLocal()
 
     try:
-        supabase = get_supabase_client()
+        supabase = get_supabase_service_client()
 
         for file in uploaded_files:
             # Validar extensão
@@ -125,7 +142,7 @@ def save_uploaded_files(
             # Ler conteúdo do arquivo
             file_content = file.getvalue()
 
-            # Upload para Supabase Storage
+            # Upload para Supabase Storage (usando service_role key para bypass RLS)
             response = supabase.storage.from_(SUPABASE_BUCKET).upload(
                 path=unique_name,
                 file=file_content,
@@ -155,7 +172,7 @@ def save_uploaded_files(
         session.rollback()
         # Limpar arquivos já salvos no Supabase em caso de erro
         try:
-            supabase = get_supabase_client()
+            supabase = get_supabase_service_client()
             for photo in saved_photos:
                 supabase.storage.from_(SUPABASE_BUCKET).remove([photo["file_path"]])
         except:
@@ -243,9 +260,9 @@ def delete_task_photos(task_id: int) -> tuple[bool, str]:
         # Coletar paths para deletar
         file_paths = [photo.file_path for photo in photos]
 
-        # Remover do Supabase Storage
+        # Remover do Supabase Storage (usando service_role key para bypass RLS)
         try:
-            supabase = get_supabase_client()
+            supabase = get_supabase_service_client()
             supabase.storage.from_(SUPABASE_BUCKET).remove(file_paths)
         except Exception as e:
             print(f"Aviso: Erro ao remover arquivos do storage: {e}")
@@ -274,9 +291,9 @@ def delete_single_photo(photo_id: int) -> tuple[bool, str]:
 
         file_path = photo.file_path
 
-        # Remover do Supabase Storage
+        # Remover do Supabase Storage (usando service_role key para bypass RLS)
         try:
-            supabase = get_supabase_client()
+            supabase = get_supabase_service_client()
             supabase.storage.from_(SUPABASE_BUCKET).remove([file_path])
         except Exception as e:
             print(f"Aviso: Erro ao remover arquivo do storage: {e}")
@@ -330,7 +347,7 @@ def ensure_bucket_exists() -> bool:
     Retorna True se o bucket está disponível.
     """
     try:
-        supabase = get_supabase_client()
+        supabase = get_supabase_service_client()
         # Listar buckets existentes
         buckets = supabase.storage.list_buckets()
         bucket_names = [b.name for b in buckets]

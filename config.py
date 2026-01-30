@@ -30,7 +30,11 @@ DATABASE_URL = f"postgresql://{DB_CONFIG['user']}:{quote_plus(DB_CONFIG['passwor
 # Configurações do Supabase Storage
 SUPABASE_URL = get_secret("SUPABASE_URL", "")
 SUPABASE_KEY = get_secret("SUPABASE_KEY", "")
+SUPABASE_SERVICE_KEY = get_secret("SUPABASE_SERVICE_KEY", "")
 SUPABASE_BUCKET = get_secret("SUPABASE_BUCKET", "task-photos")
+
+# Google Maps API Key
+GOOGLE_MAPS_API_KEY = get_secret("GOOGLE_MAPS_API_KEY", "")
 
 # Configurações de Upload
 UPLOAD_FOLDER = get_secret("UPLOAD_FOLDER", "uploads")

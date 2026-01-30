@@ -22,6 +22,9 @@ from views.register_task import render_register_task_page
 from views.dashboard import render_dashboard_page
 from views.admin import render_admin_page
 from views.task_details import render_task_details_page
+from views.assign_task import render_assign_task_page
+from views.notifications import render_notifications_page, get_unread_count
+from views.assignment_details import render_assignment_details_page
 
 
 def configure_page():
@@ -191,16 +194,23 @@ def render_sidebar():
 
         st.markdown("---")
 
+        # Badge de notificações
+        unread = get_unread_count(user["id"])
+        notif_label = f"🔔 Notificações ({unread})" if unread > 0 else "🔔 Notificações"
+
         # Menu de navegação usando radio
-        menu_options = ["📊 Dashboard", "📝 Nova Tarefa"]
+        menu_options = ["📊 Dashboard", "📝 Nova Tarefa", notif_label]
 
         if is_admin():
+            menu_options.append("📋 Atribuir Tarefa")
             menu_options.append("⚙️ Administração")
 
         # Mapeia opções para páginas
         page_map = {
             "📊 Dashboard": "dashboard",
             "📝 Nova Tarefa": "register",
+            notif_label: "notifications",
+            "📋 Atribuir Tarefa": "assign_task",
             "⚙️ Administração": "admin",
         }
 
@@ -208,7 +218,7 @@ def render_sidebar():
         current_page = st.session_state.get("current_page", "dashboard")
 
         # Páginas especiais que não estão no menu (como task_details)
-        special_pages = ["task_details"]
+        special_pages = ["task_details", "assignment_details"]
         is_special_page = current_page in special_pages
 
         # Encontra índice da página atual (ou usa dashboard se for página especial)
@@ -277,6 +287,12 @@ def main():
         render_dashboard_page()
     elif current_page == "task_details":
         render_task_details_page()
+    elif current_page == "notifications":
+        render_notifications_page()
+    elif current_page == "assign_task" and is_admin():
+        render_assign_task_page()
+    elif current_page == "assignment_details":
+        render_assignment_details_page()
     elif current_page == "admin" and is_admin():
         render_admin_page()
     else:
