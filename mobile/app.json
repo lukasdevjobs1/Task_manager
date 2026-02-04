@@ -23,7 +23,13 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#6366f1"
       },
-      "package": "com.taskmanager.isp"
+      "package": "com.taskmanager.isp",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -31,7 +37,7 @@
     "extra": {
       "apiUrl": "https://task-manager-api.railway.app/api",
       "eas": {
-        "projectId": "seu-project-id"
+        "projectId": "d710946a-f3c1-466e-b79a-a708c8b993ee"
       }
     },
     "plugins": [

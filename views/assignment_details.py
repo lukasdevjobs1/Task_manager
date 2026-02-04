@@ -11,62 +11,12 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from auth.authentication import require_login, get_current_user, is_admin
-from database.supabase_connection import get_supabase_client
-from utils.file_handler import get_photo_url
+from database.supabase_only_connection import db
 
 
 def get_assignment_detail(assignment_id: int, company_id: int) -> dict:
     """Retorna detalhes completos de uma tarefa atribuída via Supabase."""
-    supabase = get_supabase_client()
-    
-    try:
-        # Buscar tarefa com dados do usuário
-        response = supabase.table('task_assignments').select(
-            '*, assigned_by_user:users!task_assignments_assigned_by_fkey(full_name), assigned_to_user:users!task_assignments_assigned_to_fkey(full_name, team), photos:assignment_photos(*)'
-        ).eq('id', assignment_id).single().execute()
-        
-        if not response.data:
-            return None
-            
-        assignment = response.data
-        
-        # Processar fotos
-        photo_list = []
-        if assignment.get('photos'):
-            for p in assignment['photos']:
-                photo_list.append({
-                    "id": p['id'],
-                    "file_path": p.get('photo_path', ''),
-                    "original_name": p.get('original_name', 'Foto'),
-                    "file_size": p.get('file_size', 0),
-                    "uploaded_at": p.get('uploaded_at'),
-                    "url": p.get('photo_url', ''),
-                })
-        
-        return {
-            "id": assignment['id'],
-            "title": assignment['title'],
-            "description": assignment['description'],
-            "address": assignment['address'],
-            "latitude": assignment['latitude'],
-            "longitude": assignment['longitude'],
-            "status": assignment['status'],
-            "priority": assignment['priority'],
-            "due_date": assignment['due_date'],
-            "observations": assignment.get('notes'),
-            "materials": assignment.get('materials'),
-            "created_at": assignment['created_at'],
-            "updated_at": assignment['updated_at'],
-            "assigned_by": assignment['assigned_by'],
-            "assigned_to": assignment['assigned_to'],
-            "assigner_name": assignment.get('assigned_by_user', {}).get('full_name', 'Desconhecido'),
-            "assignee_name": assignment.get('assigned_to_user', {}).get('full_name', 'Desconhecido'),
-            "assignee_team": assignment.get('assigned_to_user', {}).get('team', ''),
-            "photos": photo_list,
-        }
-    except Exception as e:
-        print(f"Erro ao buscar tarefa: {e}")
-        return None
+    return db.get_task_assignment_by_id(assignment_id, company_id)
 
 
 def update_assignment_status(assignment_id: int, new_status: str, company_id: int, user_id: int, observations: str = None) -> tuple:
@@ -251,9 +201,9 @@ def render_assignment_details_page():
         with col1:
             st.markdown(f"**Atribuído por:** {detail['assigner_name']}")
             st.markdown(f"**Atribuído para:** {detail['assignee_name']} ({detail['assignee_team'].capitalize()})")
-            st.markdown(f"**Criado em:** {detail['created_at'].strftime('%d/%m/%Y %H:%M')}")
+            st.markdown(f"**Criado em:** {detail['created_at'] if isinstance(detail['created_at'], str) else detail['created_at'].strftime('%d/%m/%Y %H:%M')}")
             if detail["updated_at"]:
-                st.markdown(f"**Atualizado em:** {detail['updated_at'].strftime('%d/%m/%Y %H:%M')}")
+                st.markdown(f"**Atualizado em:** {detail['updated_at'] if isinstance(detail['updated_at'], str) else detail['updated_at'].strftime('%d/%m/%Y %H:%M')}")
 
         with col2:
             if detail["address"]:
