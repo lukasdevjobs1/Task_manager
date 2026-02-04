@@ -29,6 +29,38 @@ def get_assigned_by_me(user_id: int, company_id: int) -> list:
         return []
 
 
+def get_company_users_stats(company_id: int) -> list:
+    """Retorna estatísticas dos usuários da empresa."""
+    try:
+        users = db.get_all_users(company_id)
+        assignments = db.get_task_assignments(company_id)
+        
+        user_stats = []
+        for user in users:
+            user_assignments = [a for a in assignments if a.get('assigned_to') == user['id']]
+            pending = len([a for a in user_assignments if a.get('status') == 'pendente'])
+            in_progress = len([a for a in user_assignments if a.get('status') == 'em_andamento'])
+            completed = len([a for a in user_assignments if a.get('status') == 'concluida'])
+            
+            user_stats.append({
+                'id': user['id'],
+                'full_name': user['full_name'],
+                'username': user['username'],
+                'team': user['team'],
+                'role': user['role'],
+                'active': user['active'],
+                'total_tasks': len(user_assignments),
+                'pending': pending,
+                'in_progress': in_progress,
+                'completed': completed
+            })
+        
+        return user_stats
+    except Exception as e:
+        print(f"Erro ao obter estatísticas: {e}")
+        return []
+
+
 def render_assignment_card(assignment: dict, show_assignee: bool = False):
     """Renderiza um card de tarefa atribuída."""
     status_labels = {
@@ -135,6 +167,33 @@ def render_dashboard_page():
                 st.markdown("---")
         else:
             st.info("Você ainda não atribuiu nenhuma tarefa.")
+        
+        # Todas as tarefas da empresa
+        st.subheader("Todas as Tarefas da Empresa")
+        all_assignments = db.get_task_assignments(user["company_id"])
+        
+        if all_assignments:
+            # Filtro por status
+            status_filter = st.selectbox(
+                "Filtrar por status",
+                ["Todos", "pendente", "em_andamento", "concluida"],
+                key="filter_all_assignments"
+            )
+            
+            filtered_assignments = all_assignments
+            if status_filter != "Todos":
+                filtered_assignments = [a for a in all_assignments if a["status"] == status_filter]
+            
+            st.write(f"Mostrando {len(filtered_assignments)} de {len(all_assignments)} tarefas")
+            
+            for assignment in filtered_assignments[:10]:  # Limita a 10 para performance
+                render_assignment_card(assignment, show_assignee=True)
+                st.markdown("---")
+                
+            if len(filtered_assignments) > 10:
+                st.info(f"Mostrando apenas as 10 primeiras tarefas. Total: {len(filtered_assignments)}")
+        else:
+            st.info("Nenhuma tarefa encontrada na empresa.")
 
 
 if __name__ == "__main__":
