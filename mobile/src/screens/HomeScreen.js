@@ -47,6 +47,8 @@ function isOverdue(dueDateString) {
 export default function HomeScreen({ navigation }) {
   const { user } = useAuth();
   const [assignments, setAssignments] = useState([]);
+  const [allTasks, setAllTasks] = useState([]);
+  const [monthlyStats, setMonthlyStats] = useState({ ceo: 0, cto: 0 });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState('all');
@@ -55,11 +57,83 @@ export default function HomeScreen({ navigation }) {
     if (!user?.id) return;
     try {
       const data = await getMyAssignments(user.id);
-      // Filtrar apenas tarefas ativas (não concluídas) - mapear status correto
-      const activeTasks = data.filter(task => 
-        task.status !== 'completed' && 
-        task.status !== 'concluida'
-      );
+      console.log('Todas as tarefas:', data.map(t => ({ id: t.id, title: t.title, status: t.status })));
+      
+      // Salvar todas as tarefas para cálculos
+      setAllTasks(data);
+      
+      // Calcular estatísticas mensais
+      const currentMonth = new Date().getMonth();
+      const currentYear = new Date().getFullYear();
+      
+      const monthlyCompleted = data.filter(task => {
+        if (task.status !== 'concluida' && task.status !== 'completed') return false;
+        
+        const completedDate = task.completed_at ? new Date(task.completed_at) : null;
+        if (!completedDate) return false;
+        
+        return completedDate.getMonth() === currentMonth && 
+               completedDate.getFullYear() === currentYear;
+      });
+      
+      // CEO: Caixa de Emenda Óptica - contar quantas foram usadas
+      let ceoCount = 0;
+      // CTO: Caixa Terminal Óptica - contar quantas foram usadas
+      let ctoCount = 0;
+      
+      monthlyCompleted.forEach(task => {
+        const materials = task.materials?.toLowerCase() || '';
+        
+        // Buscar por CEO (Caixa de Emenda Óptica) - padrões mais flexíveis
+        const ceoPatterns = [
+          /(\d+)\s*ceo/g,
+          /(\d+)\s*caixa.*emenda/g,
+          /(\d+)\s*emenda.*óptica/g,
+          /ceo\s*:?\s*(\d+)/g,
+          /emenda\s*:?\s*(\d+)/g
+        ];
+        
+        ceoPatterns.forEach(pattern => {
+          const matches = materials.match(pattern);
+          if (matches) {
+            matches.forEach(match => {
+              const num = parseInt(match.match(/\d+/)?.[0] || '1');
+              ceoCount += num;
+            });
+          }
+        });
+        
+        // Buscar por CTO (Caixa Terminal Óptica) - padrões mais flexíveis
+        const ctoPatterns = [
+          /(\d+)\s*cto/g,
+          /(\d+)\s*caixa.*terminal/g,
+          /(\d+)\s*terminal.*óptica/g,
+          /cto\s*:?\s*(\d+)/g,
+          /terminal\s*:?\s*(\d+)/g
+        ];
+        
+        ctoPatterns.forEach(pattern => {
+          const matches = materials.match(pattern);
+          if (matches) {
+            matches.forEach(match => {
+              const num = parseInt(match.match(/\d+/)?.[0] || '1');
+              ctoCount += num;
+            });
+          }
+        });
+      });
+      
+      setMonthlyStats({ ceo: ceoCount, cto: ctoCount });
+      
+      // Filtrar apenas tarefas ativas - considerar todos os status de concluída
+      const activeTasks = data.filter(task => {
+        const isCompleted = task.status === 'completed' || 
+                           task.status === 'concluida' || 
+                           task.status === 'concluída';
+        return !isCompleted;
+      });
+      
+      console.log('Tarefas ativas filtradas:', activeTasks.map(t => ({ id: t.id, title: t.title, status: t.status })));
       setAssignments(activeTasks);
     } catch (error) {
       console.error('Error fetching assignments:', error);
@@ -82,6 +156,13 @@ export default function HomeScreen({ navigation }) {
   }, [fetchAssignments]);
 
   const filteredAssignments = assignments.filter((item) => {
+    // Filtrar tarefas concluídas também no filtro local
+    const isCompleted = item.status === 'completed' || 
+                       item.status === 'concluida' || 
+                       item.status === 'concluída';
+    
+    if (isCompleted) return false; // Nunca mostrar concluídas
+    
     if (filter === 'all') return true;
     return item.status === filter;
   });
@@ -173,6 +254,36 @@ export default function HomeScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
+      {/* Header com estatísticas */}
+      <View style={styles.statsHeader}>
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}>
+            <Text style={styles.statNumber}>{assignments.filter(t => t.status === 'pending').length}</Text>
+            <Text style={styles.statLabel}>Pendentes</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statNumber}>{assignments.filter(t => t.status === 'in_progress').length}</Text>
+            <Text style={styles.statLabel}>Em Andamento</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statNumber}>{allTasks.filter(t => t.status === 'concluida' || t.status === 'completed').length}</Text>
+            <Text style={styles.statLabel}>Concluídas</Text>
+          </View>
+        </View>
+        
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}>
+            <Text style={styles.statNumber}>{monthlyStats.ceo}</Text>
+            <Text style={styles.statLabel}>CEO</Text>
+            <Text style={styles.statSubLabel}>Caixa Emenda</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statNumber}>{monthlyStats.cto}</Text>
+            <Text style={styles.statLabel}>CTO</Text>
+            <Text style={styles.statSubLabel}>Caixa Terminal</Text>
+          </View>
+        </View>
+      </View>
       <View style={styles.filterContainer}>
         <FlatList
           horizontal
@@ -373,6 +484,39 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#bbb',
     marginTop: 8,
+    textAlign: 'center',
+  },
+  statsHeader: {
+    backgroundColor: '#ffffff',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 12,
+  },
+  statCard: {
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    minWidth: 80,
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1a73e8',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+  },
+  statSubLabel: {
+    fontSize: 10,
+    color: '#999',
     textAlign: 'center',
   },
 });

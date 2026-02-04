@@ -174,16 +174,33 @@ export default function TaskExecuteScreen({ route, navigation }) {
   const handleSaveObservations = async () => {
     try {
       setSaving(true);
-      console.log('Salvando observações:', observations);
+      console.log('=== INICIANDO SALVAMENTO ===');
       console.log('Assignment ID:', assignmentId);
-      console.log('Status atual:', assignment.status);
+      console.log('Observações:', observations);
+      console.log('Status atual:', assignment?.status);
       
-      await updateAssignmentStatus(assignmentId, assignment.status, observations);
+      if (!assignmentId) {
+        throw new Error('ID da tarefa não encontrado');
+      }
+      
+      if (!assignment?.status) {
+        throw new Error('Status da tarefa não encontrado');
+      }
+      
+      console.log('Chamando updateAssignmentStatus...');
+      const result = await updateAssignmentStatus(assignmentId, assignment.status, observations);
+      console.log('Resultado:', result);
+      
       Alert.alert('Sucesso', 'Observacoes salvas com sucesso!');
-      fetchDetail(); // Recarregar dados
+      fetchDetail();
     } catch (error) {
-      console.error('Erro ao salvar observações:', error);
-      Alert.alert('Erro', `Nao foi possivel salvar as observacoes: ${error.message}`);
+      console.error('=== ERRO COMPLETO ===');
+      console.error('Tipo do erro:', typeof error);
+      console.error('Mensagem:', error.message);
+      console.error('Stack:', error.stack);
+      console.error('Erro completo:', error);
+      
+      Alert.alert('Erro', `Erro: ${error.message || 'Erro desconhecido'}`);
     } finally {
       setSaving(false);
     }

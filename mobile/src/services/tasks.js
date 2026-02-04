@@ -116,14 +116,23 @@ export const updateAssignmentStatus = async (assignmentId, status, observations 
       updateData.notes = observations;
     }
 
+    console.log('Tentando atualizar tarefa:', { assignmentId, updateData });
+
     const { data, error } = await supabase
       .from('task_assignments')
       .update(updateData)
       .eq('id', assignmentId)
       .select();
 
+    console.log('Resposta Supabase:', { data, error });
+
     if (error) {
-      throw error;
+      console.error('Erro Supabase:', error);
+      throw new Error(`Erro no banco: ${error.message}`);
+    }
+
+    if (!data || data.length === 0) {
+      throw new Error('Tarefa não encontrada');
     }
 
     return data[0];
