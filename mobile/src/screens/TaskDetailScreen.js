@@ -61,6 +61,14 @@ export default function TaskDetailScreen({ route, navigation }) {
     try {
       setLoading(true);
       const data = await getAssignmentDetail(assignmentId);
+      // Mapear status da API para o app
+      const statusMap = {
+        'pendente': 'pending',
+        'em_andamento': 'in_progress',
+        'concluida': 'completed'
+      };
+      data.status = statusMap[data.status] || data.status;
+      data.observations = data.notes; // Mapear notes para observations
       setAssignment(data);
     } catch (error) {
       console.error('Error fetching assignment detail:', error);

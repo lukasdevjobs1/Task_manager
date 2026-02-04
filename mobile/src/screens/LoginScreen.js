@@ -10,10 +10,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Image,
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function LoginScreen() {
   const { login, loading } = useAuth();
@@ -45,10 +47,13 @@ export default function LoginScreen() {
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
     >
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        bounces={false}
       >
         <View style={styles.logoContainer}>
           <View style={styles.iconCircle}>
@@ -135,10 +140,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 24,
     paddingVertical: 40,
+    minHeight: SCREEN_HEIGHT * 0.9,
   },
   logoContainer: {
     alignItems: 'center',
     marginBottom: 40,
+    paddingTop: 20,
   },
   iconCircle: {
     width: 96,
@@ -166,6 +173,7 @@ const styles = StyleSheet.create({
   },
   formContainer: {
     width: '100%',
+    paddingBottom: 40,
   },
   errorContainer: {
     flexDirection: 'row',

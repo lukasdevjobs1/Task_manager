@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,17 +6,26 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   ActivityIndicator,
-  AppRegistry,
 } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { StatusBar } from 'expo-status-bar';
+import { registerRootComponent } from 'expo';
+import * as Notifications from 'expo-notifications';
 
-// Configuração de notificações removida temporariamente
+// Configuração de notificações
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 // Paleta de cores dinâmica
 const colors = {
@@ -71,7 +80,10 @@ function LoginScreen({ navigation }) {
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
       <View style={styles.logoContainer}>
         <View style={styles.iconCircle}>
           <Ionicons name="construct" size={48} color="#ffffff" />
@@ -134,7 +146,7 @@ function LoginScreen({ navigation }) {
           Teste com: joao.tecnico / 123456
         </Text>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -167,6 +179,15 @@ function HomeScreen({ navigation }) {
   ]);
 
   const showNewTaskNotification = async () => {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: '🚨 Nova Tarefa Atribuída!',
+        body: 'TechNet Soluções\n📍 Itaim Bibi - Edifício Copacabana\n⚡ Instalação Urgente',
+        sound: true,
+      },
+      trigger: null,
+    });
+
     Alert.alert(
       '🚨 Nova Tarefa Atribuída',
       'EMPRESA: TechNet Soluções\n\nGERENTE: Carlos Silva\n\nCLIENTE: Edifício Copacabana\n\nLOCALIZAÇÃO: Itaim Bibi\nRua Pedroso Alvarenga, 1245\n\nTIPO: Instalação Urgente\nPRIORIDADE: ALTA\n\n⏰ PRAZO: Hoje até 19:00',
@@ -334,23 +355,20 @@ function MainTabs() {
 
 function App() {
   return (
-    <>
-      <StatusBar style="auto" />
-      <NavigationContainer>
-        <Stack.Navigator initialRouteName="Login">
-          <Stack.Screen 
-            name="Login" 
-            component={LoginScreen}
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen 
-            name="MainTabs" 
-            component={MainTabs}
-            options={{ headerShown: false }}
-          />
-        </Stack.Navigator>
-      </NavigationContainer>
-    </>
+    <NavigationContainer>
+      <Stack.Navigator initialRouteName="Login">
+        <Stack.Screen 
+          name="Login" 
+          component={LoginScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen 
+          name="MainTabs" 
+          component={MainTabs}
+          options={{ headerShown: false }}
+        />
+      </Stack.Navigator>
+    </NavigationContainer>
   );
 }
 
@@ -651,5 +669,4 @@ const styles = StyleSheet.create({
   },
 });
 
-AppRegistry.registerComponent('main', () => App);
-export default App;
+export default registerRootComponent(App);

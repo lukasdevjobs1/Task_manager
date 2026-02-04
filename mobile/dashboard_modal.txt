@@ -1,0 +1,100 @@
+      {/* Dashboard Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={dashboardVisible}
+        onRequestClose={() => setDashboardVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.dashboardModal}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                <Ionicons name="analytics-outline" size={20} /> Dashboard ISP
+              </Text>
+              <TouchableOpacity onPress={() => setDashboardVisible(false)}>
+                <Ionicons name="close-outline" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.dashboardContent}>
+              <View style={styles.dashboardSection}>
+                <Text style={styles.dashboardSectionTitle}>Desempenho Geral</Text>
+                <View style={styles.performanceCard}>
+                  <View style={styles.performanceItem}>
+                    <Text style={styles.performanceNumber}>{completionRate}%</Text>
+                    <Text style={styles.performanceLabel}>Taxa de Conclusão</Text>
+                  </View>
+                  <View style={styles.performanceItem}>
+                    <Text style={styles.performanceNumber}>{todayTasks}</Text>
+                    <Text style={styles.performanceLabel}>Tarefas Hoje</Text>
+                  </View>
+                  <View style={styles.performanceItem}>
+                    <Text style={styles.performanceNumber}>{totalTasks}</Text>
+                    <Text style={styles.performanceLabel}>Total Geral</Text>
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.dashboardSection}>
+                <Text style={styles.dashboardSectionTitle}>
+                  {isFusionTeam ? 'Fusão Óptica' : isInfraTeam ? 'Infraestrutura de Rede' : 'Atividades'}
+                </Text>
+                
+                {isFusionTeam ? (
+                  <View style={styles.servicesGrid}>
+                    <View style={styles.serviceCard}>
+                      <Ionicons name="cube-outline" size={30} color={colors.primary} />
+                      <Text style={styles.serviceNumber}>{ceoTasks}</Text>
+                      <Text style={styles.serviceLabel}>CEO Abertas</Text>
+                      <Text style={styles.serviceDesc}>Caixas de Emenda Óptica</Text>
+                    </View>
+                    <View style={styles.serviceCard}>
+                      <Ionicons name="server-outline" size={30} color={colors.secondary} />
+                      <Text style={styles.serviceNumber}>{ctoTasks}</Text>
+                      <Text style={styles.serviceLabel}>CTO Verificadas</Text>
+                      <Text style={styles.serviceDesc}>Caixas Terminais Ópticas</Text>
+                    </View>
+                  </View>
+                ) : isInfraTeam ? (
+                  <View>
+                    <View style={styles.fiberDashboardCard}>
+                      <Ionicons name="git-branch-outline" size={40} color={colors.accent} />
+                      <Text style={styles.fiberDashboardNumber}>{fiberLaunched}m</Text>
+                      <Text style={styles.fiberDashboardLabel}>Total de Fibra Lançada</Text>
+                    </View>
+                    <View style={styles.servicesGrid}>
+                      <View style={styles.serviceCard}>
+                        <Ionicons name="warning-outline" size={30} color={colors.danger} />
+                        <Text style={styles.serviceNumber}>{breakTasks}</Text>
+                        <Text style={styles.serviceLabel}>Rompimentos</Text>
+                        <Text style={styles.serviceDesc}>Reparos de Fibra</Text>
+                      </View>
+                      <View style={styles.serviceCard}>
+                        <Ionicons name="flash-outline" size={30} color={colors.success} />
+                        <Text style={styles.serviceNumber}>{activationTasks}</Text>
+                        <Text style={styles.serviceLabel}>Ativações</Text>
+                        <Text style={styles.serviceDesc}>Projetos Ativados</Text>
+                      </View>
+                      <View style={styles.serviceCard}>
+                        <Ionicons name="business-outline" size={30} color={colors.primary} />
+                        <Text style={styles.serviceNumber}>{condoTasks}</Text>
+                        <Text style={styles.serviceLabel}>Cond./Prédios</Text>
+                        <Text style={styles.serviceDesc}>Instalações Comerciais</Text>
+                      </View>
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.servicesGrid}>
+                    <View style={styles.serviceCard}>
+                      <Ionicons name="checkmark-circle-outline" size={30} color={colors.success} />
+                      <Text style={styles.serviceNumber}>{completedTasks}</Text>
+                      <Text style={styles.serviceLabel}>Tarefas</Text>
+                      <Text style={styles.serviceDesc}>Concluídas</Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>

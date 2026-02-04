@@ -32,8 +32,15 @@ export default function TaskExecuteScreen({ route, navigation }) {
     try {
       setLoading(true);
       const data = await getAssignmentDetail(assignmentId);
+      // Mapear status da API para o app
+      const statusMap = {
+        'pendente': 'pending',
+        'em_andamento': 'in_progress', 
+        'concluida': 'completed'
+      };
+      data.status = statusMap[data.status] || data.status;
       setAssignment(data);
-      setObservations(data.observations || '');
+      setObservations(data.notes || ''); // Usar notes da API
     } catch (error) {
       console.error('Error fetching assignment:', error);
       Alert.alert('Erro', 'Nao foi possivel carregar a tarefa.');
@@ -164,10 +171,16 @@ export default function TaskExecuteScreen({ route, navigation }) {
   const handleSaveObservations = async () => {
     try {
       setSaving(true);
+      console.log('Salvando observações:', observations);
+      console.log('Assignment ID:', assignmentId);
+      console.log('Status atual:', assignment.status);
+      
       await updateAssignmentStatus(assignmentId, assignment.status, observations);
       Alert.alert('Sucesso', 'Observacoes salvas com sucesso!');
+      fetchDetail(); // Recarregar dados
     } catch (error) {
-      Alert.alert('Erro', 'Nao foi possivel salvar as observacoes.');
+      console.error('Erro ao salvar observações:', error);
+      Alert.alert('Erro', `Nao foi possivel salvar as observacoes: ${error.message}`);
     } finally {
       setSaving(false);
     }

@@ -1,0 +1,22 @@
+# Arquivos e pastas que não devem ser enviados para o EAS Build
+node_modules/
+.expo/
+dist/
+*.log
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+.DS_Store
+*.orig.*
+web-build/
+.env.local
+.env.*.local
+__pycache__/
+*.pyc
+android/app/build/
+android/.gradle/
+android/local.properties
+
+

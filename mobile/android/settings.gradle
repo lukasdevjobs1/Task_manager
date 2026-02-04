@@ -31,7 +31,7 @@ extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
 }
 expoAutolinking.useExpoModules()
 
-rootProject.name = 'Task Manager'
+rootProject.name = 'ISP Field Manager'
 
 expoAutolinking.useExpoVersionCatalog()
 

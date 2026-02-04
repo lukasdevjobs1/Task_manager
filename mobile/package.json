@@ -1,7 +1,7 @@
 {
   "name": "task-manager-field",
   "version": "1.0.0",
-  "main": "App.js",
+  "main": "App_ISP_Pro.js",
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",

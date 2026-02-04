@@ -55,7 +55,9 @@ export default function HomeScreen({ navigation }) {
     if (!user?.id) return;
     try {
       const data = await getMyAssignments(user.id);
-      setAssignments(data);
+      // Filtrar apenas tarefas ativas (não concluídas)
+      const activeTasks = data.filter(task => task.status !== 'completed');
+      setAssignments(activeTasks);
     } catch (error) {
       console.error('Error fetching assignments:', error);
     } finally {
@@ -176,7 +178,6 @@ export default function HomeScreen({ navigation }) {
             { key: 'all', label: 'Todas' },
             { key: 'pending', label: 'Pendentes' },
             { key: 'in_progress', label: 'Em Andamento' },
-            { key: 'completed', label: 'Concluidas' },
           ]}
           renderItem={({ item }) => renderFilterButton(item.key, item.label)}
           keyExtractor={(item) => item.key}

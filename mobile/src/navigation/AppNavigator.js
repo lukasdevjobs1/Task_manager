@@ -8,6 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 // Screen imports
 import LoginScreen from '../screens/LoginScreen';
 import HomeScreen from '../screens/HomeScreen';
+import CompletedTasksScreen from '../screens/CompletedTasksScreen';
 import TaskDetailScreen from '../screens/TaskDetailScreen';
 import TaskExecuteScreen from '../screens/TaskExecuteScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
@@ -64,6 +65,9 @@ function MainTabNavigator() {
             case 'Home':
               iconName = focused ? 'list-circle' : 'list-circle-outline';
               break;
+            case 'Completed':
+              iconName = focused ? 'checkmark-done-circle' : 'checkmark-done-circle-outline';
+              break;
             case 'Notifications':
               iconName = focused ? 'notifications' : 'notifications-outline';
               break;
@@ -97,6 +101,18 @@ function MainTabNavigator() {
         name="Home"
         component={HomeStackNavigator}
         options={{ tabBarLabel: 'Tarefas' }}
+      />
+      <Tab.Screen
+        name="Completed"
+        component={CompletedTasksScreen}
+        options={{
+          tabBarLabel: 'Concluídas',
+          headerShown: true,
+          headerTitle: 'Tarefas Concluídas',
+          headerStyle: { backgroundColor: '#1a73e8' },
+          headerTintColor: '#ffffff',
+          headerTitleStyle: { fontWeight: '600' },
+        }}
       />
       <Tab.Screen
         name="Notifications"

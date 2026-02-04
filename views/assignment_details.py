@@ -357,7 +357,7 @@ def render_assignment_details_page():
                     "Alterar Status",
                     options=["pending", "in_progress", "completed"],
                     format_func=lambda x: {"pending": "Pendente", "in_progress": "Em Andamento", "completed": "Concluída"}[x],
-                    index=["pending", "in_progress", "completed"].index(detail["status"]),
+                    index=max(0, ["pending", "in_progress", "completed"].index(detail["status"]) if detail["status"] in ["pending", "in_progress", "completed"] else 0),
                     key="admin_status",
                 )
                 if st.button("Atualizar Status", key="admin_update_status"):
