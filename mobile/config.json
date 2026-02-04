@@ -1,0 +1,15 @@
+{
+  "api": {
+    "baseUrl": "http://192.168.1.4:5000/api",
+    "timeout": 10000
+  },
+  "app": {
+    "name": "Task Manager ISP",
+    "version": "2.0.0"
+  },
+  "features": {
+    "pushNotifications": true,
+    "camera": true,
+    "location": true
+  }
+}

@@ -11,79 +11,36 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from auth.authentication import require_login, get_current_user
-from database.connection import SessionLocal
-from database.models import Notification
+from database.supabase_only_connection import db
 
 
 def get_unread_count(user_id: int) -> int:
-    """Retorna a contagem de notificações não lidas."""
-    session = SessionLocal()
-    try:
-        return session.query(Notification).filter(
-            Notification.user_id == user_id,
-            Notification.read == False,
-        ).count()
-    finally:
-        session.close()
+    """Retorna a contagem de notificações não lidas via Supabase."""
+    return db.get_unread_count(user_id)
 
 
 def get_notifications(user_id: int, limit: int = 50) -> list:
-    """Retorna lista de notificações do usuário."""
-    session = SessionLocal()
-    try:
-        notifications = session.query(Notification).filter(
-            Notification.user_id == user_id,
-        ).order_by(Notification.created_at.desc()).limit(limit).all()
-        return [
-            {
-                "id": n.id,
-                "type": n.type,
-                "title": n.title,
-                "message": n.message,
-                "reference_id": n.reference_id,
-                "read": n.read,
-                "created_at": n.created_at,
-            }
-            for n in notifications
-        ]
-    finally:
-        session.close()
+    """Retorna lista de notificações do usuário via Supabase."""
+    return db.get_notifications(user_id)
 
 
 def mark_as_read(notification_id: int) -> bool:
-    """Marca uma notificação como lida."""
-    session = SessionLocal()
-    try:
-        notification = session.query(Notification).filter(
-            Notification.id == notification_id
-        ).first()
-        if notification:
-            notification.read = True
-            session.commit()
-            return True
-        return False
-    except Exception:
-        session.rollback()
-        return False
-    finally:
-        session.close()
+    """Marca uma notificação como lida via Supabase."""
+    return db.mark_notification_as_read(notification_id, None)
 
 
 def mark_all_as_read(user_id: int) -> int:
-    """Marca todas as notificações do usuário como lidas. Retorna quantidade atualizada."""
-    session = SessionLocal()
+    """Marca todas as notificações do usuário como lidas via Supabase."""
     try:
-        count = session.query(Notification).filter(
-            Notification.user_id == user_id,
-            Notification.read == False,
-        ).update({"read": True})
-        session.commit()
+        notifications = db.get_notifications(user_id, unread_only=True)
+        count = 0
+        for notif in notifications:
+            if db.mark_notification_as_read(notif['id'], user_id):
+                count += 1
         return count
-    except Exception:
-        session.rollback()
+    except Exception as e:
+        print(f"Erro ao marcar notificações: {e}")
         return 0
-    finally:
-        session.close()
 
 
 def format_time_ago(dt: datetime) -> str:

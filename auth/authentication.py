@@ -10,43 +10,15 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from database.connection import SessionLocal
-from database.models import User, Company
-
-
-def hash_password(password: str) -> str:
-    """Gera hash bcrypt da senha."""
-    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-
-
-def verify_password(password: str, password_hash: str) -> bool:
-    """Verifica se a senha corresponde ao hash."""
-    return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
+from database.supabase_only_connection import db
 
 
 def authenticate_user(username: str, password: str) -> Optional[dict]:
     """
-    Autentica um usuário pelo username e senha.
+    Autentica um usuário pelo username e senha via Supabase.
     Retorna dict com dados do usuário se válido, None caso contrário.
     """
-    session = SessionLocal()
-    try:
-        user = session.query(User).join(Company).filter(User.username == username).first()
-        if user and user.active and user.company.active and verify_password(password, user.password_hash):
-            # Retorna um dicionário com todos os dados necessários
-            return {
-                "id": user.id,
-                "company_id": user.company_id,
-                "company_name": user.company.name,
-                "username": user.username,
-                "full_name": user.full_name,
-                "team": user.team,
-                "role": user.role,
-                "is_super_admin": getattr(user, 'is_super_admin', False) or False,
-            }
-        return None
-    finally:
-        session.close()
+    return db.authenticate_user(username, password)
 
 
 def create_user(
@@ -58,131 +30,30 @@ def create_user(
     role: str = "user",
 ) -> tuple[bool, str]:
     """
-    Cria um novo usuário no sistema.
+    Cria um novo usuário no sistema via Supabase.
     Retorna (sucesso, mensagem).
     """
-    if len(password) < 6:
-        return False, "A senha deve ter no mínimo 6 caracteres."
-
-    session = SessionLocal()
-    try:
-        # Verifica se username já existe
-        existing = session.query(User).filter(User.username == username).first()
-        if existing:
-            return False, "Nome de usuário já existe."
-
-        # Cria novo usuário
-        new_user = User(
-            company_id=company_id,
-            username=username,
-            password_hash=hash_password(password),
-            full_name=full_name,
-            team=team,
-            role=role,
-            active=True,
-        )
-        session.add(new_user)
-        session.commit()
-        return True, "Usuário criado com sucesso!"
-    except Exception as e:
-        session.rollback()
-        return False, f"Erro ao criar usuário: {str(e)}"
-    finally:
-        session.close()
+    return db.create_user(username, password, full_name, team, company_id, role)
 
 
 def update_password(user_id: int, new_password: str, company_id: int) -> tuple[bool, str]:
-    """Atualiza a senha de um usuário (validando company_id)."""
-    if len(new_password) < 6:
-        return False, "A senha deve ter no mínimo 6 caracteres."
-
-    session = SessionLocal()
-    try:
-        user = session.query(User).filter(
-            User.id == user_id,
-            User.company_id == company_id
-        ).first()
-        if not user:
-            return False, "Usuário não encontrado."
-
-        user.password_hash = hash_password(new_password)
-        session.commit()
-        return True, "Senha atualizada com sucesso!"
-    except Exception as e:
-        session.rollback()
-        return False, f"Erro ao atualizar senha: {str(e)}"
-    finally:
-        session.close()
+    """Atualiza a senha de um usuário via Supabase."""
+    return db.update_password(user_id, new_password, company_id)
 
 
 def toggle_user_status(user_id: int, company_id: int) -> tuple[bool, str]:
-    """Ativa/desativa um usuário (validando company_id)."""
-    session = SessionLocal()
-    try:
-        user = session.query(User).filter(
-            User.id == user_id,
-            User.company_id == company_id
-        ).first()
-        if not user:
-            return False, "Usuário não encontrado."
-
-        user.active = not user.active
-        status = "ativado" if user.active else "desativado"
-        session.commit()
-        return True, f"Usuário {status} com sucesso!"
-    except Exception as e:
-        session.rollback()
-        return False, f"Erro ao alterar status: {str(e)}"
-    finally:
-        session.close()
+    """Ativa/desativa um usuário via Supabase."""
+    return db.toggle_user_status(user_id, company_id)
 
 
 def get_all_users(company_id: int) -> list:
-    """Retorna lista de usuários de uma empresa."""
-    session = SessionLocal()
-    try:
-        users = session.query(User).filter(
-            User.company_id == company_id
-        ).order_by(User.full_name).all()
-        # Converte para dicionários para evitar problemas de sessão
-        return [
-            {
-                "id": u.id,
-                "username": u.username,
-                "full_name": u.full_name,
-                "team": u.team,
-                "role": u.role,
-                "active": u.active,
-                "created_at": u.created_at,
-            }
-            for u in users
-        ]
-    finally:
-        session.close()
+    """Retorna lista de usuários de uma empresa via Supabase."""
+    return db.get_all_users(company_id)
 
 
 def get_user_by_id(user_id: int, company_id: int = None) -> Optional[dict]:
-    """Retorna um usuário pelo ID (opcionalmente validando company_id)."""
-    session = SessionLocal()
-    try:
-        query = session.query(User).filter(User.id == user_id)
-        if company_id:
-            query = query.filter(User.company_id == company_id)
-        user = query.first()
-        if user:
-            return {
-                "id": user.id,
-                "company_id": user.company_id,
-                "username": user.username,
-                "full_name": user.full_name,
-                "team": user.team,
-                "role": user.role,
-                "active": user.active,
-                "created_at": user.created_at,
-            }
-        return None
-    finally:
-        session.close()
+    """Retorna um usuário pelo ID via Supabase."""
+    return db.get_user_by_id(user_id, company_id)
 
 
 # ============ Funções de Sessão Streamlit ============
@@ -262,27 +133,13 @@ def require_admin():
 
 
 def get_all_companies() -> list:
-    """Retorna lista de todas as empresas."""
-    session = SessionLocal()
-    try:
-        companies = session.query(Company).order_by(Company.name).all()
-        return [
-            {
-                "id": c.id,
-                "name": c.name,
-                "slug": c.slug,
-                "active": c.active,
-                "created_at": c.created_at,
-            }
-            for c in companies
-        ]
-    finally:
-        session.close()
+    """Retorna lista de todas as empresas via Supabase."""
+    return db.get_all_companies()
 
 
 def create_company(name: str, slug: str) -> tuple[bool, str, int]:
     """
-    Cria uma nova empresa.
+    Cria uma nova empresa via Supabase.
     Retorna (sucesso, mensagem, company_id).
     """
     if not name.strip():
@@ -295,170 +152,76 @@ def create_company(name: str, slug: str) -> tuple[bool, str, int]:
     if not re.match(r'^[a-z0-9-]+$', slug):
         return False, "Slug deve conter apenas letras minúsculas, números e hífens.", None
 
-    session = SessionLocal()
-    try:
-        # Verifica se slug já existe
-        existing = session.query(Company).filter(Company.slug == slug).first()
-        if existing:
-            return False, "Já existe uma empresa com este slug.", None
-
-        new_company = Company(
-            name=name.strip(),
-            slug=slug.strip().lower(),
-            active=True,
-        )
-        session.add(new_company)
-        session.commit()
-        return True, "Empresa criada com sucesso!", new_company.id
-    except Exception as e:
-        session.rollback()
-        return False, f"Erro ao criar empresa: {str(e)}", None
-    finally:
-        session.close()
+    return db.create_company(name, slug)
 
 
 def toggle_company_status(company_id: int) -> tuple[bool, str]:
-    """Ativa/desativa uma empresa."""
-    session = SessionLocal()
-    try:
-        company = session.query(Company).filter(Company.id == company_id).first()
-        if not company:
-            return False, "Empresa não encontrada."
-
-        company.active = not company.active
-        status = "ativada" if company.active else "desativada"
-        session.commit()
-        return True, f"Empresa {status} com sucesso!"
-    except Exception as e:
-        session.rollback()
-        return False, f"Erro ao alterar status: {str(e)}"
-    finally:
-        session.close()
+    """Ativa/desativa uma empresa via Supabase."""
+    return db.toggle_company_status(company_id)
 
 
 def get_company_stats(company_id: int) -> dict:
-    """Retorna estatísticas de uma empresa."""
-    session = SessionLocal()
+    """Retorna estatísticas de uma empresa via Supabase."""
     try:
-        from database.models import Task
-        user_count = session.query(User).filter(User.company_id == company_id).count()
-        task_count = session.query(Task).filter(Task.company_id == company_id).count()
+        users = db.get_all_users(company_id)
+        tasks = db.get_task_assignments(company_id)
         return {
-            "users": user_count,
-            "tasks": task_count,
+            "users": len(users),
+            "tasks": len(tasks),
         }
-    finally:
-        session.close()
+    except Exception as e:
+        print(f"Erro ao obter estatísticas: {e}")
+        return {"users": 0, "tasks": 0}
 
 
 def update_company(company_id: int, name: str = None, active: bool = None) -> tuple[bool, str]:
-    """Atualiza dados de uma empresa."""
-    session = SessionLocal()
+    """Atualiza dados de uma empresa via Supabase."""
     try:
-        company = session.query(Company).filter(Company.id == company_id).first()
-        if not company:
-            return False, "Empresa não encontrada."
-
+        update_data = {}
         if name is not None:
-            company.name = name
+            update_data['name'] = name
         if active is not None:
-            company.active = active
-
-        session.commit()
+            update_data['active'] = active
+        
+        if update_data:
+            db.client.table('companies').update(update_data).eq('id', company_id).execute()
+        
         return True, "Empresa atualizada com sucesso!"
     except Exception as e:
-        session.rollback()
         return False, f"Erro ao atualizar empresa: {str(e)}"
-    finally:
-        session.close()
 
 
 def delete_company(company_id: int) -> tuple[bool, str]:
-    """Exclui uma empresa e todos os seus dados."""
-    session = SessionLocal()
+    """Exclui uma empresa e todos os seus dados via Supabase."""
     try:
-        from database.models import Task, TaskPhoto
-
-        company = session.query(Company).filter(Company.id == company_id).first()
-        if not company:
-            return False, "Empresa não encontrada."
-
         # Excluir fotos das tarefas
-        task_ids = [t.id for t in session.query(Task).filter(Task.company_id == company_id).all()]
-        if task_ids:
-            session.query(TaskPhoto).filter(TaskPhoto.task_id.in_(task_ids)).delete(synchronize_session=False)
-
+        db.client.table('assignment_photos').delete().eq('assignment_id', 'in', 
+            f"(SELECT id FROM task_assignments WHERE company_id = {company_id})").execute()
+        
+        # Excluir notificações
+        db.client.table('notifications').delete().eq('company_id', company_id).execute()
+        
         # Excluir tarefas
-        session.query(Task).filter(Task.company_id == company_id).delete(synchronize_session=False)
-
+        db.client.table('task_assignments').delete().eq('company_id', company_id).execute()
+        
         # Excluir usuários
-        session.query(User).filter(User.company_id == company_id).delete(synchronize_session=False)
-
+        db.client.table('users').delete().eq('company_id', company_id).execute()
+        
         # Excluir empresa
-        session.delete(company)
-        session.commit()
-
-        return True, "Empresa excluída com sucesso!"
+        result = db.client.table('companies').delete().eq('id', company_id).execute()
+        
+        if result.data:
+            return True, "Empresa excluída com sucesso!"
+        return False, "Empresa não encontrada."
     except Exception as e:
-        session.rollback()
         return False, f"Erro ao excluir empresa: {str(e)}"
-    finally:
-        session.close()
 
 
 def delete_user(user_id: int, company_id: int) -> tuple[bool, str]:
-    """Exclui um usuário (validando company_id)."""
-    session = SessionLocal()
-    try:
-        from database.models import Task, TaskPhoto
-
-        user = session.query(User).filter(
-            User.id == user_id,
-            User.company_id == company_id
-        ).first()
-
-        if not user:
-            return False, "Usuário não encontrado."
-
-        # Excluir fotos das tarefas do usuário
-        task_ids = [t.id for t in session.query(Task).filter(Task.user_id == user_id).all()]
-        if task_ids:
-            session.query(TaskPhoto).filter(TaskPhoto.task_id.in_(task_ids)).delete(synchronize_session=False)
-
-        # Excluir tarefas do usuário
-        session.query(Task).filter(Task.user_id == user_id).delete(synchronize_session=False)
-
-        # Excluir usuário
-        session.delete(user)
-        session.commit()
-
-        return True, "Usuário excluído com sucesso!"
-    except Exception as e:
-        session.rollback()
-        return False, f"Erro ao excluir usuário: {str(e)}"
-    finally:
-        session.close()
+    """Exclui um usuário via Supabase."""
+    return db.delete_user(user_id, company_id)
 
 
 def get_users_by_company(company_id: int) -> list:
-    """Retorna lista de usuários de uma empresa específica."""
-    session = SessionLocal()
-    try:
-        users = session.query(User).filter(
-            User.company_id == company_id
-        ).order_by(User.full_name).all()
-
-        return [
-            {
-                "id": u.id,
-                "username": u.username,
-                "full_name": u.full_name,
-                "team": u.team,
-                "role": u.role,
-                "active": u.active,
-                "created_at": u.created_at,
-            }
-            for u in users
-        ]
-    finally:
-        session.close()
+    """Retorna lista de usuários de uma empresa específica via Supabase."""
+    return db.get_all_users(company_id)

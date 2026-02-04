@@ -14,9 +14,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from auth.authentication import require_login, get_current_user, is_admin
-from database.connection import SessionLocal
-from database.models import Task, User, TaskAssignment
-from utils.export import export_to_excel, export_to_pdf
+from database.supabase_only_connection import db
 
 
 def get_user_tasks(user_id: int, company_id: int, month: int = None, year: int = None) -> list:
@@ -227,59 +225,18 @@ def get_user_ranking(company_id: int, month: int = None, year: int = None) -> pd
 
 
 def get_assigned_to_me(user_id: int, company_id: int) -> list:
-    """Retorna tarefas atribuídas ao usuário."""
-    session = SessionLocal()
-    try:
-        assignments = session.query(TaskAssignment, User.full_name).join(
-            User, TaskAssignment.assigned_by == User.id
-        ).filter(
-            TaskAssignment.assigned_to == user_id,
-            TaskAssignment.company_id == company_id,
-        ).order_by(TaskAssignment.created_at.desc()).all()
-        return [
-            {
-                "id": a.id,
-                "title": a.title,
-                "description": a.description,
-                "address": a.address,
-                "status": a.status,
-                "priority": a.priority,
-                "due_date": a.due_date,
-                "created_at": a.created_at,
-                "assigned_by_name": name,
-            }
-            for a, name in assignments
-        ]
-    finally:
-        session.close()
+    """Retorna tarefas atribuídas ao usuário via Supabase."""
+    return db.get_task_assignments(company_id, user_id)
 
 
 def get_assigned_by_me(user_id: int, company_id: int) -> list:
-    """Retorna tarefas que o admin atribuiu."""
-    session = SessionLocal()
+    """Retorna tarefas que o admin atribuiu via Supabase."""
     try:
-        assignments = session.query(TaskAssignment, User.full_name).join(
-            User, TaskAssignment.assigned_to == User.id
-        ).filter(
-            TaskAssignment.assigned_by == user_id,
-            TaskAssignment.company_id == company_id,
-        ).order_by(TaskAssignment.created_at.desc()).all()
-        return [
-            {
-                "id": a.id,
-                "title": a.title,
-                "description": a.description,
-                "address": a.address,
-                "status": a.status,
-                "priority": a.priority,
-                "due_date": a.due_date,
-                "created_at": a.created_at,
-                "assigned_to_name": name,
-            }
-            for a, name in assignments
-        ]
-    finally:
-        session.close()
+        assignments = db.get_task_assignments(company_id)
+        return [a for a in assignments if a.get('assigned_by') == user_id]
+    except Exception as e:
+        print(f"Erro ao buscar tarefas atribuídas: {e}")
+        return []
 
 
 def render_assignment_card(assignment: dict, show_assignee: bool = False):

@@ -12,30 +12,13 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from auth.authentication import require_admin, get_current_user
-from database.connection import SessionLocal
-from database.models import TaskAssignment, Notification, User
+from database.supabase_only_connection import db
 
 
 def get_active_users(company_id: int) -> list:
-    """Retorna lista de usuários ativos da empresa."""
-    session = SessionLocal()
-    try:
-        users = session.query(User).filter(
-            User.company_id == company_id,
-            User.active == True,
-        ).order_by(User.full_name).all()
-        return [
-            {
-                "id": u.id,
-                "full_name": u.full_name,
-                "username": u.username,
-                "team": u.team,
-                "role": u.role,
-            }
-            for u in users
-        ]
-    finally:
-        session.close()
+    """Retorna lista de usuários ativos da empresa via Supabase."""
+    users = db.get_all_users(company_id)
+    return [u for u in users if u['active']]
 
 
 def parse_google_maps_link(link: str) -> tuple:
@@ -69,47 +52,45 @@ def create_task_assignment(
     priority: str,
     due_date=None,
 ) -> tuple:
-    """Cria uma nova atribuição de tarefa e notificação."""
-    session = SessionLocal()
+    """Cria uma nova atribuição de tarefa via Supabase."""
     try:
-        assignment = TaskAssignment(
-            company_id=company_id,
-            assigned_by=assigned_by,
-            assigned_to=assigned_to,
-            title=title,
-            description=description,
-            address=address,
-            latitude=latitude,
-            longitude=longitude,
-            priority=priority,
-            due_date=due_date,
-            status="pending",
-        )
-        session.add(assignment)
-        session.flush()  # Para obter o ID antes do commit
-
-        # Criar notificação
-        assigner = session.query(User).filter(User.id == assigned_by).first()
-        assigner_name = assigner.full_name if assigner else "Gerente"
-
-        notification = Notification(
-            user_id=assigned_to,
-            company_id=company_id,
-            type="task_assigned",
-            title="Nova Tarefa Atribuída",
-            message=f"{assigner_name} atribuiu a tarefa: {title}",
-            reference_id=assignment.id,
-            read=False,
-        )
-        session.add(notification)
-        session.commit()
-
-        return True, "Tarefa atribuída com sucesso!", assignment.id
+        # Criar tarefa
+        assignment_data = {
+            'company_id': company_id,
+            'assigned_by': assigned_by,
+            'assigned_to': assigned_to,
+            'title': title,
+            'description': description,
+            'address': address,
+            'latitude': latitude,
+            'longitude': longitude,
+            'priority': priority,
+            'due_date': due_date.isoformat() if due_date else None,
+        }
+        
+        success, message, assignment_id = db.create_task_assignment(assignment_data)
+        
+        if success:
+            # Buscar nome do atribuidor
+            assigner = db.get_user_by_id(assigned_by)
+            assigner_name = assigner['full_name'] if assigner else "Gerente"
+            
+            # Criar notificação
+            db.create_notification(
+                user_id=assigned_to,
+                company_id=company_id,
+                type="task_assigned",
+                title="Nova Tarefa Atribuída",
+                message=f"{assigner_name} atribuiu a tarefa: {title}",
+                reference_id=assignment_id
+            )
+            
+            return True, "Tarefa atribuída com sucesso!", assignment_id
+        else:
+            return False, message, None
+            
     except Exception as e:
-        session.rollback()
         return False, f"Erro ao atribuir tarefa: {str(e)}", None
-    finally:
-        session.close()
 
 
 def render_assign_task_page():
@@ -161,10 +142,9 @@ def render_assign_task_page():
 
         # Prioridade
         priority_map = {
-            "Baixa": "low",
-            "Média": "medium",
-            "Alta": "high",
-            "Urgente": "urgent",
+            "Baixa": "baixa",
+            "Média": "media",
+            "Alta": "alta",
         }
         selected_priority = st.selectbox(
             "Prioridade",

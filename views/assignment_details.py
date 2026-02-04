@@ -11,64 +11,62 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from auth.authentication import require_login, get_current_user, is_admin
-from database.connection import SessionLocal
-from database.models import TaskAssignment, Notification, User, AssignmentPhoto
+from database.supabase_connection import get_supabase_client
 from utils.file_handler import get_photo_url
 
 
 def get_assignment_detail(assignment_id: int, company_id: int) -> dict:
-    """Retorna detalhes completos de uma tarefa atribuída."""
-    session = SessionLocal()
+    """Retorna detalhes completos de uma tarefa atribuída via Supabase."""
+    supabase = get_supabase_client()
+    
     try:
-        assignment = session.query(TaskAssignment).filter(
-            TaskAssignment.id == assignment_id,
-            TaskAssignment.company_id == company_id,
-        ).first()
-
-        if not assignment:
+        # Buscar tarefa com dados do usuário
+        response = supabase.table('task_assignments').select(
+            '*, assigned_by_user:users!task_assignments_assigned_by_fkey(full_name), assigned_to_user:users!task_assignments_assigned_to_fkey(full_name, team), photos:assignment_photos(*)'
+        ).eq('id', assignment_id).single().execute()
+        
+        if not response.data:
             return None
-
-        assigner = session.query(User).filter(User.id == assignment.assigned_by).first()
-        assignee = session.query(User).filter(User.id == assignment.assigned_to).first()
-
-        photos = session.query(AssignmentPhoto).filter(
-            AssignmentPhoto.assignment_id == assignment_id
-        ).all()
-
+            
+        assignment = response.data
+        
+        # Processar fotos
         photo_list = []
-        for p in photos:
-            photo_list.append({
-                "id": p.id,
-                "file_path": p.file_path,
-                "original_name": p.original_name,
-                "file_size": p.file_size,
-                "uploaded_at": p.uploaded_at,
-                "url": get_photo_url(p.file_path),
-            })
-
+        if assignment.get('photos'):
+            for p in assignment['photos']:
+                photo_list.append({
+                    "id": p['id'],
+                    "file_path": p.get('photo_path', ''),
+                    "original_name": p.get('original_name', 'Foto'),
+                    "file_size": p.get('file_size', 0),
+                    "uploaded_at": p.get('uploaded_at'),
+                    "url": p.get('photo_url', ''),
+                })
+        
         return {
-            "id": assignment.id,
-            "title": assignment.title,
-            "description": assignment.description,
-            "address": assignment.address,
-            "latitude": assignment.latitude,
-            "longitude": assignment.longitude,
-            "status": assignment.status,
-            "priority": assignment.priority,
-            "due_date": assignment.due_date,
-            "observations": assignment.observations,
-            "materials": getattr(assignment, 'materials', None),
-            "created_at": assignment.created_at,
-            "updated_at": assignment.updated_at,
-            "assigned_by": assignment.assigned_by,
-            "assigned_to": assignment.assigned_to,
-            "assigner_name": assigner.full_name if assigner else "Desconhecido",
-            "assignee_name": assignee.full_name if assignee else "Desconhecido",
-            "assignee_team": assignee.team if assignee else "",
+            "id": assignment['id'],
+            "title": assignment['title'],
+            "description": assignment['description'],
+            "address": assignment['address'],
+            "latitude": assignment['latitude'],
+            "longitude": assignment['longitude'],
+            "status": assignment['status'],
+            "priority": assignment['priority'],
+            "due_date": assignment['due_date'],
+            "observations": assignment.get('notes'),
+            "materials": assignment.get('materials'),
+            "created_at": assignment['created_at'],
+            "updated_at": assignment['updated_at'],
+            "assigned_by": assignment['assigned_by'],
+            "assigned_to": assignment['assigned_to'],
+            "assigner_name": assignment.get('assigned_by_user', {}).get('full_name', 'Desconhecido'),
+            "assignee_name": assignment.get('assigned_to_user', {}).get('full_name', 'Desconhecido'),
+            "assignee_team": assignment.get('assigned_to_user', {}).get('team', ''),
             "photos": photo_list,
         }
-    finally:
-        session.close()
+    except Exception as e:
+        print(f"Erro ao buscar tarefa: {e}")
+        return None
 
 
 def update_assignment_status(assignment_id: int, new_status: str, company_id: int, user_id: int, observations: str = None) -> tuple:

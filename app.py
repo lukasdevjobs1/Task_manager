@@ -19,7 +19,7 @@ from auth.authentication import (
 )
 from views.login import render_login_page
 from views.register_task import render_register_task_page
-from views.dashboard import render_dashboard_page
+from views.dashboard_supabase import render_dashboard_page
 from views.admin import render_admin_page
 from views.task_details import render_task_details_page
 from views.assign_task import render_assign_task_page
