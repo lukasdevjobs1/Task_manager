@@ -192,10 +192,20 @@ def update_company(company_id: int, name: str = None, active: bool = None) -> tu
 
 
 def delete_company(company_id: int) -> tuple[bool, str]:
-    """Exclui uma empresa via Supabase."""
+    """Exclui uma empresa e todos os seus dados via Supabase."""
     try:
+        # Excluir notificações
+        db.client.table('notifications').delete().eq('company_id', company_id).execute()
+        
+        # Excluir tarefas atribuídas
+        db.client.table('task_assignments').delete().eq('company_id', company_id).execute()
+        
+        # Excluir usuários
+        db.client.table('users').delete().eq('company_id', company_id).execute()
+        
         # Excluir empresa
-        result = db.client.table('companies').delete().eq('id', company_id).execute()
+        db.client.table('companies').delete().eq('id', company_id).execute()
+        
         return True, "Empresa excluída com sucesso!"
     except Exception as e:
         return False, f"Erro ao excluir empresa: {str(e)}"
