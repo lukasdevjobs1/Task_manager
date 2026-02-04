@@ -70,20 +70,20 @@ def render_admin_page():
 
             # Ativar/Desativar usuário
             st.markdown("---")
-            st.subheader("Ativar/Desativar Usuário")
+            st.subheader("Gerenciar Usuário")
 
-            col1, col2 = st.columns([3, 1])
+            col1, col2, col3 = st.columns([3, 1, 1])
             with col1:
                 user_options = {
                     f"{u['full_name']} ({u['username']})": u["id"]
                     for u in users
-                    if u["id"] != user["id"]  # Não pode desativar a si mesmo
+                    if u["id"] != user["id"]  # Não pode gerenciar a si mesmo
                 }
                 if user_options:
                     selected_user = st.selectbox(
                         "Selecione o usuário",
                         options=list(user_options.keys()),
-                        key="toggle_user",
+                        key="manage_user",
                     )
                 else:
                     st.info("Não há outros usuários para gerenciar.")
@@ -97,6 +97,16 @@ def render_admin_page():
 
                     if st.button(action, type="primary", use_container_width=True):
                         success, msg = toggle_user_status(selected_id, user["company_id"])
+                        if success:
+                            st.success(msg)
+                            st.rerun()
+                        else:
+                            st.error(msg)
+            
+            with col3:
+                if selected_user and user_is_super_admin:
+                    if st.button("Excluir", type="secondary", use_container_width=True):
+                        success, msg = delete_user(user_options[selected_user], user["company_id"])
                         if success:
                             st.success(msg)
                             st.rerun()
