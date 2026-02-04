@@ -57,7 +57,7 @@ def get_assignment_detail(assignment_id: int, company_id: int) -> dict:
             "priority": assignment.priority,
             "due_date": assignment.due_date,
             "observations": assignment.observations,
-            "materials": assignment.materials,
+            "materials": getattr(assignment, 'materials', None),
             "created_at": assignment.created_at,
             "updated_at": assignment.updated_at,
             "assigned_by": assignment.assigned_by,
