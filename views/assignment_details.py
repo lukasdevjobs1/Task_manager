@@ -57,6 +57,7 @@ def get_assignment_detail(assignment_id: int, company_id: int) -> dict:
             "priority": assignment.priority,
             "due_date": assignment.due_date,
             "observations": assignment.observations,
+            "materials": assignment.materials,
             "created_at": assignment.created_at,
             "updated_at": assignment.updated_at,
             "assigned_by": assignment.assigned_by,
@@ -262,6 +263,10 @@ def render_assignment_details_page():
         if detail["observations"]:
             st.markdown("**Observações do campo:**")
             st.text_area("", value=detail["observations"], disabled=True, height=100, key="obs_view")
+
+        if detail["materials"]:
+            st.markdown("**Materiais utilizados:**")
+            st.text_area("", value=detail["materials"], disabled=True, height=80, key="materials_view")
 
         # Mapa
         if detail["latitude"] and detail["longitude"]:

@@ -16,6 +16,7 @@ import * as ImagePicker from 'expo-image-picker';
 import {
   getAssignmentDetail,
   updateAssignmentStatus,
+  updateAssignmentMaterials,
   uploadAssignmentPhotos,
 } from '../services/tasks';
 
@@ -25,6 +26,7 @@ export default function TaskExecuteScreen({ route, navigation }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [observations, setObservations] = useState('');
+  const [materials, setMaterials] = useState('');
   const [photos, setPhotos] = useState([]);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
 
@@ -41,6 +43,7 @@ export default function TaskExecuteScreen({ route, navigation }) {
       data.status = statusMap[data.status] || data.status;
       setAssignment(data);
       setObservations(data.notes || ''); // Usar notes da API
+      setMaterials(data.materials || ''); // Carregar materiais
     } catch (error) {
       console.error('Error fetching assignment:', error);
       Alert.alert('Erro', 'Nao foi possivel carregar a tarefa.');
@@ -186,6 +189,19 @@ export default function TaskExecuteScreen({ route, navigation }) {
     }
   };
 
+  const handleSaveMaterials = async () => {
+    try {
+      setSaving(true);
+      await updateAssignmentMaterials(assignmentId, materials);
+      Alert.alert('Sucesso', 'Materiais salvos com sucesso!');
+      fetchDetail();
+    } catch (error) {
+      Alert.alert('Erro', 'Nao foi possivel salvar os materiais.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.centerContainer}>
@@ -269,6 +285,29 @@ export default function TaskExecuteScreen({ route, navigation }) {
           >
             <Ionicons name="save-outline" size={16} color="#1a73e8" />
             <Text style={styles.saveObsButtonText}>Salvar Observacoes</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Materials */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Materiais Utilizados</Text>
+          <TextInput
+            style={styles.materialsInput}
+            placeholder="Ex: 50m cabo AS, 2 caixas de emenda óptica, 1 DIO..."
+            placeholderTextColor="#999"
+            value={materials}
+            onChangeText={setMaterials}
+            multiline
+            numberOfLines={4}
+            textAlignVertical="top"
+          />
+          <TouchableOpacity
+            style={styles.saveMaterialsButton}
+            onPress={handleSaveMaterials}
+            disabled={saving}
+          >
+            <Ionicons name="construct-outline" size={16} color="#1a73e8" />
+            <Text style={styles.saveMaterialsButtonText}>Salvar Materiais</Text>
           </TouchableOpacity>
         </View>
 
@@ -440,6 +479,32 @@ const styles = StyleSheet.create({
     borderColor: '#1a73e8',
   },
   saveObsButtonText: {
+    color: '#1a73e8',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  materialsInput: {
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 14,
+    color: '#333',
+    minHeight: 80,
+    backgroundColor: '#fafafa',
+  },
+  saveMaterialsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#1a73e8',
+  },
+  saveMaterialsButtonText: {
     color: '#1a73e8',
     fontSize: 14,
     fontWeight: '600',

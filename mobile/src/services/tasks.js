@@ -22,7 +22,7 @@ const API_BASE_URL = 'http://192.168.1.4:5000';
 
 import { supabase } from '../config/supabase';
 
-export const getMyTasks = async (userId) => {
+export const getMyAssignments = async (userId) => {
   try {
     const { data, error } = await supabase
       .from('task_assignments')
@@ -64,6 +64,28 @@ export const getAssignmentDetail = async (assignmentId) => {
     return data;
   } catch (error) {
     console.error('Erro ao buscar detalhes da tarefa:', error);
+    throw error;
+  }
+};
+
+export const updateAssignmentMaterials = async (assignmentId, materials) => {
+  try {
+    const { data, error } = await supabase
+      .from('task_assignments')
+      .update({ 
+        materials: materials,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', assignmentId)
+      .select();
+
+    if (error) {
+      throw error;
+    }
+
+    return data[0];
+  } catch (error) {
+    console.error('Erro ao atualizar materiais:', error);
     throw error;
   }
 };

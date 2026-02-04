@@ -22,9 +22,11 @@ export default function CompletedTasksScreen({ navigation }) {
   const fetchCompletedTasks = useCallback(async () => {
     try {
       setLoading(true);
-      const allTasks = await getMyTasks(user.id);
-      // Filtrar apenas tarefas concluídas
-      const completedTasks = allTasks.filter(task => task.status === 'concluida');
+      const allTasks = await getMyAssignments(user.id);
+      // Filtrar apenas tarefas concluídas - considerar ambos os status
+      const completedTasks = allTasks.filter(task => 
+        task.status === 'concluida' || task.status === 'completed'
+      );
       setTasks(completedTasks);
     } catch (error) {
       console.error('Error fetching completed tasks:', error);

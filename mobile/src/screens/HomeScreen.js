@@ -55,8 +55,11 @@ export default function HomeScreen({ navigation }) {
     if (!user?.id) return;
     try {
       const data = await getMyAssignments(user.id);
-      // Filtrar apenas tarefas ativas (não concluídas)
-      const activeTasks = data.filter(task => task.status !== 'completed');
+      // Filtrar apenas tarefas ativas (não concluídas) - mapear status correto
+      const activeTasks = data.filter(task => 
+        task.status !== 'completed' && 
+        task.status !== 'concluida'
+      );
       setAssignments(activeTasks);
     } catch (error) {
       console.error('Error fetching assignments:', error);
