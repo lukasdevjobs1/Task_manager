@@ -226,7 +226,16 @@ def render_assignment_details_page():
         st.markdown(f"**Prioridade:** {priority_colors.get(detail['priority'], detail['priority'])}")
     with col3:
         if detail["due_date"]:
-            st.markdown(f"**Prazo:** {detail['due_date'].strftime('%d/%m/%Y')}")
+            try:
+                # Se for string, converter para datetime
+                if isinstance(detail["due_date"], str):
+                    from datetime import datetime
+                    due_date = datetime.fromisoformat(detail["due_date"].replace('Z', '+00:00'))
+                    st.markdown(f"**Prazo:** {due_date.strftime('%d/%m/%Y')}")
+                else:
+                    st.markdown(f"**Prazo:** {detail['due_date'].strftime('%d/%m/%Y')}")
+            except:
+                st.markdown(f"**Prazo:** {detail['due_date']}")
         else:
             st.markdown("**Prazo:** Sem prazo")
 
