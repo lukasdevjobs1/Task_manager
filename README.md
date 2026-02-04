@@ -207,12 +207,6 @@ cp .env.example .env
 # Execute a migração
 python migrations/final_migration.py
 
-# Usuários de exemplo criados:
-# - joao.tecnico / 123456
-# - maria.instaladora / 123456
-# - lucas.campo / 123456
-# - felipe.rede / 123456
-```
 
 ### **4. App Mobile (Desenvolvimento)**
 ```bash
