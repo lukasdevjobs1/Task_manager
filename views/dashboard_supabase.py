@@ -149,9 +149,11 @@ def render_dashboard_page():
         st.markdown("---")
         
         # Botão para dashboard gerencial avançado
-        if st.button("📊 Ver Dashboard Gerencial Completo", type="primary", use_container_width=True):
-            st.session_state["current_page"] = "manager_dashboard"
-            st.rerun()
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("📊 Ver Dashboard Gerencial Completo", type="primary", use_container_width=True, key="btn_manager_dash"):
+                st.session_state["current_page"] = "manager_dashboard"
+                st.rerun()
         
         st.markdown("---")
         st.header("⚙️ Visão Geral (Admin)")
