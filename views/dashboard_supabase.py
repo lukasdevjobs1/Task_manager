@@ -99,9 +99,14 @@ def render_assignment_card(assignment: dict, show_assignee: bool = False, card_i
     with col1:
         st.markdown(f"**{icon} {assignment['title']}**")
         if show_assignee:
-            st.caption(f"Para: {assignment.get('assigned_to_user', {}).get('full_name', '')}")
+            assignee = assignment.get('assigned_to_user')
+            if assignee and isinstance(assignee, dict):
+                st.caption(f"Para: {assignee.get('full_name', 'N/A')}")
+            else:
+                st.caption("Para: Caixa da Empresa")
         else:
-            st.caption(f"De: {assignment.get('assigned_by_user', {}).get('full_name', '')}")
+            assigner = assignment.get('assigned_by_user', {})
+            st.caption(f"De: {assigner.get('full_name', 'N/A') if isinstance(assigner, dict) else 'N/A'}")
     with col2:
         st.caption(f"Prioridade: {priority_text}")
         st.caption(f"Status: {status_text}")
