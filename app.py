@@ -288,6 +288,9 @@ def main():
         render_register_task_page()
     elif current_page == "dashboard":
         render_dashboard_page()
+    elif current_page == "manager_dashboard" and is_admin():
+        from views.manager_dashboard import render_manager_dashboard
+        render_manager_dashboard()
     elif current_page == "task_details":
         render_task_details_page()
     elif current_page == "notifications":
