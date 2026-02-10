@@ -200,8 +200,16 @@ def render_assignment_details_page():
         col1, col2 = st.columns(2)
         with col1:
             # Usar os nomes corretos retornados pelo Supabase
-            assigner_name = detail.get('assigned_by_user', {}).get('full_name', 'N/A') if isinstance(detail.get('assigned_by_user'), dict) else 'N/A'
-            assignee_name = detail.get('assigned_to_user', {}).get('full_name', 'N/A') if isinstance(detail.get('assigned_to_user'), dict) else 'N/A'
+            assigner_name = 'N/A'
+            assignee_name = 'N/A'
+            
+            try:
+                if isinstance(detail.get('assigned_by_user'), dict):
+                    assigner_name = detail['assigned_by_user'].get('full_name', 'N/A')
+                if isinstance(detail.get('assigned_to_user'), dict):
+                    assignee_name = detail['assigned_to_user'].get('full_name', 'N/A')
+            except:
+                pass
             
             st.markdown(f"**Atribuído por:** {assigner_name}")
             st.markdown(f"**Atribuído para:** {assignee_name}")

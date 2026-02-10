@@ -1,33 +1,30 @@
 import streamlit as st
-from database.supabase_connection import get_supabase_client
+from database.supabase_only_connection import db
+from auth.authentication import require_login, get_current_user
 from datetime import datetime
 import base64
 from io import BytesIO
 from PIL import Image
 
 def show_completed_tasks_manager():
-    st.title("📋 Tarefas Concluídas - Visualização Gerente")
+    require_login()
+    user = get_current_user()
     
-    supabase = get_supabase_client()
-    user = st.session_state.user
+    if not user:
+        st.error("Usuário não encontrado")
+        return
+    
+    st.title("📋 Tarefas Concluídas - Visualização Gerente")
     
     # Filtros
     col1, col2 = st.columns(2)
     with col1:
         date_filter = st.date_input("Filtrar por data", value=None)
     with col2:
-        collaborator_filter = st.selectbox("Filtrar por colaborador", ["Todos"] + get_collaborators(supabase, user))
+        collaborator_filter = st.selectbox("Filtrar por colaborador", ["Todos"] + get_collaborators(user))
     
     # Buscar tarefas concluídas
-    query = supabase.table('task_assignments').select('*, assigned_to_user:users!assigned_to(full_name, username)')
-    
-    if user['role'] == 'gerente':
-        query = query.eq('assigned_by', user['id'])
-    
-    query = query.eq('status', 'concluida').order('completed_at', desc=True)
-    
-    response = query.execute()
-    tasks = response.data if response.data else []
+    tasks = db.get_task_assignments(user['company_id'], status='concluida')
     
     # Aplicar filtros
     if date_filter:
@@ -80,8 +77,7 @@ def show_completed_tasks_manager():
             
             with col2:
                 # Buscar fotos
-                photos_response = supabase.table('assignment_photos').select('*').eq('assignment_id', task['id']).execute()
-                photos = photos_response.data if photos_response.data else []
+                photos = db.get_assignment_photos(task['id'])
                 
                 if photos:
                     st.write(f"**Fotos ({len(photos)}):**")
@@ -98,12 +94,9 @@ def show_completed_tasks_manager():
                 else:
                     st.info("Sem fotos")
 
-def get_collaborators(supabase, user):
-    query = supabase.table('users').select('full_name').eq('role', 'colaborador')
-    if user['role'] == 'gerente':
-        query = query.eq('company_id', user.get('company_id', 1))
-    response = query.execute()
-    return [u['full_name'] for u in response.data] if response.data else []
+def get_collaborators(user):
+    users = db.get_all_users(user['company_id'])
+    return [u['full_name'] for u in users if u['role'] == 'user']
 
 def format_datetime(dt_str):
     if not dt_str:

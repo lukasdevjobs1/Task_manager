@@ -43,25 +43,38 @@ def mark_all_as_read(user_id: int) -> int:
         return 0
 
 
-def format_time_ago(dt: datetime) -> str:
+def format_time_ago(dt) -> str:
     """Formata a diferença de tempo de forma legível."""
-    now = datetime.utcnow()
-    diff = now - dt
-    seconds = diff.total_seconds()
+    try:
+        from datetime import datetime, timezone
+        
+        # Converter string para datetime se necessário
+        if isinstance(dt, str):
+            dt = datetime.fromisoformat(dt.replace('Z', '+00:00'))
+        
+        # Garantir timezone-aware
+        now = datetime.now(timezone.utc)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        
+        diff = now - dt
+        seconds = diff.total_seconds()
 
-    if seconds < 60:
-        return "agora mesmo"
-    elif seconds < 3600:
-        minutes = int(seconds // 60)
-        return f"há {minutes} min"
-    elif seconds < 86400:
-        hours = int(seconds // 3600)
-        return f"há {hours}h"
-    elif seconds < 604800:
-        days = int(seconds // 86400)
-        return f"há {days} dia(s)"
-    else:
-        return dt.strftime("%d/%m/%Y %H:%M")
+        if seconds < 60:
+            return "agora mesmo"
+        elif seconds < 3600:
+            minutes = int(seconds // 60)
+            return f"há {minutes} min"
+        elif seconds < 86400:
+            hours = int(seconds // 3600)
+            return f"há {hours}h"
+        elif seconds < 604800:
+            days = int(seconds // 86400)
+            return f"há {days} dia(s)"
+        else:
+            return dt.strftime("%d/%m/%Y %H:%M")
+    except:
+        return "--"
 
 
 def get_notification_icon(notification_type: str) -> str:
