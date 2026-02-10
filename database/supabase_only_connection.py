@@ -215,12 +215,12 @@ class SupabaseDatabase:
     
     # === TAREFAS ATRIBUÍDAS ===
     def create_task_assignment(self, assignment_data: dict) -> tuple[bool, str, int]:
-        """Cria nova tarefa atribuída"""
+        """Cria nova tarefa atribuída (ou na caixa da empresa se assigned_to = None)"""
         try:
             data = {
                 'company_id': assignment_data['company_id'],
                 'assigned_by': assignment_data['assigned_by'],
-                'assigned_to': assignment_data['assigned_to'],
+                'assigned_to': assignment_data.get('assigned_to'),  # Pode ser None
                 'title': assignment_data['title'],
                 'description': assignment_data.get('description'),
                 'address': assignment_data.get('address'),

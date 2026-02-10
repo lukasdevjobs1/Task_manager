@@ -23,6 +23,7 @@ from views.dashboard_supabase import render_dashboard_page
 from views.admin import render_admin_page
 from views.task_details import render_task_details_page
 from views.assign_task import render_assign_task_page
+from views.manage_tasks import render_manage_tasks_page
 from views.notifications import render_notifications_page, get_unread_count
 from views.assignment_details import render_assignment_details_page
 from views.completed_tasks_manager import show_completed_tasks_manager
@@ -203,7 +204,7 @@ def render_sidebar():
         menu_options = ["📊 Dashboard", "📝 Nova Tarefa", notif_label]
 
         if is_admin():
-            menu_options.append("📋 Atribuir Tarefa")
+            menu_options.append("📋 Gerenciar Tarefas")
             menu_options.append("✅ Tarefas Concluídas")
             menu_options.append("⚙️ Administração")
 
@@ -212,7 +213,7 @@ def render_sidebar():
             "📊 Dashboard": "dashboard",
             "📝 Nova Tarefa": "register",
             notif_label: "notifications",
-            "📋 Atribuir Tarefa": "assign_task",
+            "📋 Gerenciar Tarefas": "manage_tasks",
             "✅ Tarefas Concluídas": "completed_tasks",
             "⚙️ Administração": "admin",
         }
@@ -295,8 +296,8 @@ def main():
         render_task_details_page()
     elif current_page == "notifications":
         render_notifications_page()
-    elif current_page == "assign_task" and is_admin():
-        render_assign_task_page()
+    elif current_page == "manage_tasks" and is_admin():
+        render_manage_tasks_page()
     elif current_page == "completed_tasks" and is_admin():
         show_completed_tasks_manager()
     elif current_page == "assignment_details":

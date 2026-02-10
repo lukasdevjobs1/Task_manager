@@ -119,16 +119,22 @@ def render_assign_task_page():
     with st.form("assign_task_form", clear_on_submit=True):
         st.subheader("Dados da Tarefa")
 
-        # Destinatário
-        user_options = {
-            f"{u['full_name']} ({u['team'].capitalize()})": u["id"]
-            for u in available_users
-        }
-        selected_user_label = st.selectbox(
-            "Atribuir para *",
-            options=list(user_options.keys()),
-        )
-        selected_user_id = user_options[selected_user_label]
+        # Destinatário (opcional - pode deixar na caixa da empresa)
+        assign_now = st.checkbox("Atribuir a um colaborador agora", value=True)
+        
+        selected_user_id = None
+        if assign_now:
+            user_options = {
+                f"{u['full_name']} ({u['team'].capitalize()})": u["id"]
+                for u in available_users
+            }
+            selected_user_label = st.selectbox(
+                "Atribuir para *",
+                options=list(user_options.keys()),
+            )
+            selected_user_id = user_options[selected_user_label]
+        else:
+            st.info("💼 Tarefa será criada na caixa da empresa para atribuição posterior")
 
         # Título
         title = st.text_input("Título da Tarefa *", max_chars=200)
@@ -216,22 +222,42 @@ def render_assign_task_page():
                 st.error("Longitude inválida. Use formato numérico (ex: -46.633309).")
                 return
 
-        # Criar tarefa
-        success, message, assignment_id = create_task_assignment(
-            company_id=user["company_id"],
-            assigned_by=user["id"],
-            assigned_to=selected_user_id,
-            title=title.strip(),
-            description=description.strip() if description else None,
-            address=address.strip() if address else None,
-            latitude=latitude,
-            longitude=longitude,
-            priority=priority_map[selected_priority],
-            due_date=due_date,
-        )
+        # Criar tarefa (com ou sem atribuição)
+        if selected_user_id:
+            # Tarefa atribuída diretamente
+            success, message, assignment_id = create_task_assignment(
+                company_id=user["company_id"],
+                assigned_by=user["id"],
+                assigned_to=selected_user_id,
+                title=title.strip(),
+                description=description.strip() if description else None,
+                address=address.strip() if address else None,
+                latitude=latitude,
+                longitude=longitude,
+                priority=priority_map[selected_priority],
+                due_date=due_date,
+            )
+        else:
+            # Tarefa na caixa da empresa (assigned_to = None)
+            assignment_data = {
+                'company_id': user["company_id"],
+                'assigned_by': user["id"],
+                'assigned_to': None,  # Sem atribuição
+                'title': title.strip(),
+                'description': description.strip() if description else None,
+                'address': address.strip() if address else None,
+                'latitude': latitude,
+                'longitude': longitude,
+                'priority': priority_map[selected_priority],
+                'due_date': due_date.isoformat() if due_date else None,
+            }
+            success, message, assignment_id = db.create_task_assignment(assignment_data)
 
         if success:
-            st.success(f"{message} (ID: {assignment_id})")
+            if selected_user_id:
+                st.success(f"✅ {message} (ID: {assignment_id})")
+            else:
+                st.success(f"💼 Tarefa criada na caixa da empresa! (ID: {assignment_id})")
             st.balloons()
         else:
             st.error(message)
