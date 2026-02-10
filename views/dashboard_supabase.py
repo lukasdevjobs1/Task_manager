@@ -165,85 +165,77 @@ def render_dashboard_page():
     # Seção Admin - Visão Geral
     if is_admin():
         st.markdown("---")
-        st.header("📊 Métricas Gerenciais")
+        st.header("📊 Dashboard Interativo")
         
         # Obter todas as tarefas e usuários
         all_assignments = db.get_task_assignments(user["company_id"])
         all_users = db.get_all_users(user["company_id"])
         
-        # Métricas de materiais
-        total_ctos = 0
-        total_ceos = 0
-        total_cabo = 0
-        
-        for assignment in all_assignments:
-            if assignment.get('status') == 'concluida' and assignment.get('materials'):
-                metrics = extract_materials_metrics(assignment['materials'])
-                total_ctos += metrics['ctos']
-                total_ceos += metrics['ceos']
-                total_cabo += metrics['cabo_metros']
-        
-        # Exibir métricas de materiais
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("🔧 CTOs Instaladas", total_ctos)
-        with col2:
-            st.metric("📦 CEOs Instaladas", total_ceos)
-        with col3:
-            st.metric("📏 Cabo Lançado (m)", total_cabo)
-        
-        st.markdown("---")
-        
-        # Desempenho por equipe
-        st.subheader("👥 Desempenho por Equipe")
-        
-        team_stats = {}
+        # Calcular métricas por equipe
+        team_data = {}
         for user_data in all_users:
             if user_data['role'] == 'admin':
                 continue
             
             team = user_data['team']
-            if team not in team_stats:
-                team_stats[team] = {'members': [], 'completed': 0, 'pending': 0, 'in_progress': 0}
+            if team not in team_data:
+                team_data[team] = {'tarefas': 0, 'ctos': 0, 'ceos': 0, 'cabo': 0, 'completed': 0, 'pending': 0, 'in_progress': 0}
             
             user_assignments = [a for a in all_assignments if a.get('assigned_to') == user_data['id']]
-            completed = len([a for a in user_assignments if a.get('status') == 'concluida'])
-            pending = len([a for a in user_assignments if a.get('status') == 'pendente'])
-            in_progress = len([a for a in user_assignments if a.get('status') == 'em_andamento'])
+            team_data[team]['tarefas'] += len(user_assignments)
+            team_data[team]['completed'] += len([a for a in user_assignments if a.get('status') == 'concluida'])
+            team_data[team]['pending'] += len([a for a in user_assignments if a.get('status') == 'pendente'])
+            team_data[team]['in_progress'] += len([a for a in user_assignments if a.get('status') == 'em_andamento'])
             
-            team_stats[team]['members'].append({
-                'name': user_data['full_name'],
-                'completed': completed,
-                'pending': pending,
-                'in_progress': in_progress,
-                'total': len(user_assignments)
-            })
-            team_stats[team]['completed'] += completed
-            team_stats[team]['pending'] += pending
-            team_stats[team]['in_progress'] += in_progress
+            for assignment in user_assignments:
+                if assignment.get('status') == 'concluida' and assignment.get('materials'):
+                    metrics = extract_materials_metrics(assignment['materials'])
+                    team_data[team]['ctos'] += metrics['ctos']
+                    team_data[team]['ceos'] += metrics['ceos']
+                    team_data[team]['cabo'] += metrics['cabo_metros']
         
-        # Exibir por equipe
-        for team_name, stats in team_stats.items():
-            with st.expander(f"🔹 Equipe {team_name.capitalize()} - {len(stats['members'])} membros", expanded=True):
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("Concluídas", stats['completed'])
-                with col2:
-                    st.metric("Em Andamento", stats['in_progress'])
-                with col3:
-                    st.metric("Pendentes", stats['pending'])
-                
-                # Tabela de membros
-                if stats['members']:
-                    members_df = pd.DataFrame(stats['members'])
-                    members_df = members_df.rename(columns={
-                        'name': 'Nome',
-                        'total': 'Total',
-                        'completed': 'Concluídas',
-                        'in_progress': 'Em Andamento',
-                        'pending': 'Pendentes'
-                    })
-                    st.dataframe(members_df, use_container_width=True, hide_index=True)
+        # Gráficos interativos
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            fig_tasks = go.Figure(data=[
+                go.Bar(name='Concluídas', x=list(team_data.keys()), y=[team_data[t]['completed'] for t in team_data], marker_color='#4CAF50'),
+                go.Bar(name='Em Andamento', x=list(team_data.keys()), y=[team_data[t]['in_progress'] for t in team_data], marker_color='#2196F3'),
+                go.Bar(name='Pendentes', x=list(team_data.keys()), y=[team_data[t]['pending'] for t in team_data], marker_color='#FFC107')
+            ])
+            fig_tasks.update_layout(title='Tarefas por Equipe', barmode='stack', height=300)
+            st.plotly_chart(fig_tasks, use_container_width=True)
+        
+        with col2:
+            fig_materials = go.Figure(data=[
+                go.Bar(name='CTOs', x=list(team_data.keys()), y=[team_data[t]['ctos'] for t in team_data], marker_color='#FF5722'),
+                go.Bar(name='CEOs', x=list(team_data.keys()), y=[team_data[t]['ceos'] for t in team_data], marker_color='#9C27B0')
+            ])
+            fig_materials.update_layout(title='CTOs e CEOs por Equipe', barmode='group', height=300)
+            st.plotly_chart(fig_materials, use_container_width=True)
+        
+        fig_cabo = go.Figure(data=[
+            go.Bar(x=list(team_data.keys()), y=[team_data[t]['cabo'] for t in team_data], marker_color='#00BCD4')
+        ])
+        fig_cabo.update_layout(title='Cabo Lançado por Equipe (metros)', height=300)
+        st.plotly_chart(fig_cabo, use_container_width=True)
+        
+        st.subheader("📈 Totais Gerais")
+        col1, col2, col3, col4 = st.columns(4)
+        
+        total_tasks = sum(t['tarefas'] for t in team_data.values())
+        total_ctos = sum(t['ctos'] for t in team_data.values())
+        total_ceos = sum(t['ceos'] for t in team_data.values())
+        total_cabo = sum(t['cabo'] for t in team_data.values())
+        
+        with col1:
+            st.metric("Total de Tarefas", total_tasks)
+        with col2:
+            st.metric("🔧 CTOs", total_ctos)
+        with col3:
+            st.metric("📦 CEOs", total_ceos)
+        with col4:
+            st.metric("📏 Cabo (m)", total_cabo)
         
         st.markdown("---")
         st.header("⚙️ Tarefas Atribuídas")
