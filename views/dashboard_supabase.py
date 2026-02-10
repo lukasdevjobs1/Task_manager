@@ -237,6 +237,42 @@ def render_dashboard_page():
         with col4:
             st.metric("📏 Cabo (m)", total_cabo)
         
+        # Tabela detalhada por usuário
+        st.subheader("👥 Desempenho Individual")
+        
+        user_details = []
+        for user_data in all_users:
+            if user_data['role'] == 'admin':
+                continue
+            
+            user_assignments = [a for a in all_assignments if a.get('assigned_to') == user_data['id']]
+            completed = len([a for a in user_assignments if a.get('status') == 'concluida'])
+            
+            user_ctos = 0
+            user_ceos = 0
+            user_cabo = 0
+            for assignment in user_assignments:
+                if assignment.get('status') == 'concluida' and assignment.get('materials'):
+                    metrics = extract_materials_metrics(assignment['materials'])
+                    user_ctos += metrics['ctos']
+                    user_ceos += metrics['ceos']
+                    user_cabo += metrics['cabo_metros']
+            
+            user_details.append({
+                'Nome': user_data['full_name'],
+                'Equipe': user_data['team'].capitalize(),
+                'Tarefas': len(user_assignments),
+                'Concluídas': completed,
+                'CTOs': user_ctos,
+                'CEOs': user_ceos,
+                'Cabo (m)': user_cabo
+            })
+        
+        if user_details:
+            df_users = pd.DataFrame(user_details)
+            df_users = df_users.sort_values('Concluídas', ascending=False)
+            st.dataframe(df_users, use_container_width=True, hide_index=True)
+        
         st.markdown("---")
         st.header("⚙️ Tarefas Atribuídas")
 
