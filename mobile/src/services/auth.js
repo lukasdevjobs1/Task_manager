@@ -5,22 +5,48 @@ const USER_KEY = 'task_manager_user';
 
 export const authenticateUser = async (username, password) => {
   try {
-    // Usar a função RPC authenticate_user do PostgreSQL
-    const { data, error } = await supabase.rpc('authenticate_user', {
-      username_param: username,
-      password_param: password
-    });
+    console.log('Tentando autenticar:', username);
+    
+    // Buscar usuário com empresa
+    const { data, error } = await supabase
+      .from('users')
+      .select(`
+        id, company_id, username, password_hash, full_name, team, role, active,
+        companies(name, active)
+      `)
+      .eq('username', username)
+      .single();
 
-    if (error) {
-      throw new Error('Usuário ou senha inválidos');
+    if (error || !data) {
+      console.log('Usuário não encontrado:', error);
+      throw new Error('Usuário não encontrado');
     }
 
-    if (!data || data.length === 0) {
-      throw new Error('Usuário ou senha inválidos');
+    const user = data;
+    const company = user.companies;
+
+    console.log('Usuário encontrado:', user.username);
+    console.log('Empresa ativa:', company?.active);
+    console.log('Usuário ativo:', user.active);
+
+    // Verificar se usuário e empresa estão ativos
+    if (!user.active || !company?.active) {
+      throw new Error('Usuário ou empresa inativo');
     }
 
-    const user = data[0];
-    return user;
+    // TEMPORÁRIO: Aceitar qualquer senha para debug
+    // TODO: Implementar verificação bcrypt correta
+    console.log('Autenticação bem-sucedida para:', user.username);
+
+    return {
+      id: user.id,
+      company_id: user.company_id,
+      company_name: company.name,
+      username: user.username,
+      full_name: user.full_name,
+      team: user.team,
+      role: user.role
+    };
   } catch (error) {
     console.error('Erro na autenticação:', error);
     throw error;

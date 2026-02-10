@@ -257,31 +257,31 @@ export default function HomeScreen({ navigation }) {
       {/* Header com estatísticas */}
       <View style={styles.statsHeader}>
         <View style={styles.statsRow}>
-          <View style={styles.statCard}>
+          <TouchableOpacity style={styles.statCard} onPress={() => navigation.navigate('Tasks')}>
             <Text style={styles.statNumber}>{assignments.filter(t => t.status === 'pending').length}</Text>
             <Text style={styles.statLabel}>Pendentes</Text>
-          </View>
-          <View style={styles.statCard}>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.statCard} onPress={() => navigation.navigate('Tasks')}>
             <Text style={styles.statNumber}>{assignments.filter(t => t.status === 'in_progress').length}</Text>
             <Text style={styles.statLabel}>Em Andamento</Text>
-          </View>
-          <View style={styles.statCard}>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.statCard} onPress={() => navigation.navigate('CompletedTasks')}>
             <Text style={styles.statNumber}>{allTasks.filter(t => t.status === 'concluida' || t.status === 'completed').length}</Text>
             <Text style={styles.statLabel}>Concluídas</Text>
-          </View>
+          </TouchableOpacity>
         </View>
         
         <View style={styles.statsRow}>
-          <View style={styles.statCard}>
+          <TouchableOpacity style={styles.statCard} onPress={() => navigation.navigate('Metrics')}>
             <Text style={styles.statNumber}>{monthlyStats.ceo}</Text>
             <Text style={styles.statLabel}>CEO</Text>
             <Text style={styles.statSubLabel}>Caixa Emenda</Text>
-          </View>
-          <View style={styles.statCard}>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.statCard} onPress={() => navigation.navigate('Metrics')}>
             <Text style={styles.statNumber}>{monthlyStats.cto}</Text>
             <Text style={styles.statLabel}>CTO</Text>
             <Text style={styles.statSubLabel}>Caixa Terminal</Text>
-          </View>
+          </TouchableOpacity>
         </View>
       </View>
       <View style={styles.filterContainer}>

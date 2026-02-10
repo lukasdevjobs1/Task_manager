@@ -61,7 +61,7 @@ def get_company_users_stats(company_id: int) -> list:
         return []
 
 
-def render_assignment_card(assignment: dict, show_assignee: bool = False):
+def render_assignment_card(assignment: dict, show_assignee: bool = False, card_index: int = 0):
     """Renderiza um card de tarefa atribuída."""
     status_labels = {
         "pendente": ("🟡", "Pendente"),
@@ -88,7 +88,9 @@ def render_assignment_card(assignment: dict, show_assignee: bool = False):
         st.caption(f"Prioridade: {priority_text}")
         st.caption(f"Status: {status_text}")
     with col3:
-        if st.button("Ver", key=f"view_assign_{assignment['id']}"):
+        # Chave única usando ID da tarefa e índice do card
+        unique_key = f"view_assign_{assignment['id']}_{card_index}_{show_assignee}"
+        if st.button("Ver", key=unique_key):
             st.session_state["selected_assignment_id"] = assignment["id"]
             st.session_state["current_page"] = "assignment_details"
             st.rerun()
@@ -122,8 +124,8 @@ def render_dashboard_page():
             filtered = [a for a in my_assignments if a["status"] == status_filter]
 
         if filtered:
-            for assignment in filtered:
-                render_assignment_card(assignment, show_assignee=False)
+            for idx, assignment in enumerate(filtered):
+                render_assignment_card(assignment, show_assignee=False, card_index=idx)
                 st.markdown("---")
         else:
             st.info(f"Nenhuma tarefa com status '{status_filter}'.")
@@ -162,8 +164,8 @@ def render_dashboard_page():
                 a_completed = len([a for a in my_created_assignments if a["status"] == "concluida"])
                 st.metric("Concluídas", a_completed)
 
-            for assignment in my_created_assignments:
-                render_assignment_card(assignment, show_assignee=True)
+            for idx, assignment in enumerate(my_created_assignments):
+                render_assignment_card(assignment, show_assignee=True, card_index=idx + 1000)
                 st.markdown("---")
         else:
             st.info("Você ainda não atribuiu nenhuma tarefa.")
@@ -186,8 +188,8 @@ def render_dashboard_page():
             
             st.write(f"Mostrando {len(filtered_assignments)} de {len(all_assignments)} tarefas")
             
-            for assignment in filtered_assignments[:10]:  # Limita a 10 para performance
-                render_assignment_card(assignment, show_assignee=True)
+            for idx, assignment in enumerate(filtered_assignments[:10]):  # Limita a 10 para performance
+                render_assignment_card(assignment, show_assignee=True, card_index=idx + 2000)
                 st.markdown("---")
                 
             if len(filtered_assignments) > 10:

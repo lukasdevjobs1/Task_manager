@@ -131,6 +131,7 @@ export function AuthProvider({ children }) {
     logout,
     savePushToken,
     refreshUser,
+    updateUser: refreshUser, // Alias for updateUser
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

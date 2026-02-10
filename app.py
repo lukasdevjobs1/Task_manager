@@ -25,6 +25,7 @@ from views.task_details import render_task_details_page
 from views.assign_task import render_assign_task_page
 from views.notifications import render_notifications_page, get_unread_count
 from views.assignment_details import render_assignment_details_page
+from views.completed_tasks_manager import show_completed_tasks_manager
 
 
 def configure_page():
@@ -203,6 +204,7 @@ def render_sidebar():
 
         if is_admin():
             menu_options.append("📋 Atribuir Tarefa")
+            menu_options.append("✅ Tarefas Concluídas")
             menu_options.append("⚙️ Administração")
 
         # Mapeia opções para páginas
@@ -211,6 +213,7 @@ def render_sidebar():
             "📝 Nova Tarefa": "register",
             notif_label: "notifications",
             "📋 Atribuir Tarefa": "assign_task",
+            "✅ Tarefas Concluídas": "completed_tasks",
             "⚙️ Administração": "admin",
         }
 
@@ -291,6 +294,8 @@ def main():
         render_notifications_page()
     elif current_page == "assign_task" and is_admin():
         render_assign_task_page()
+    elif current_page == "completed_tasks" and is_admin():
+        show_completed_tasks_manager()
     elif current_page == "assignment_details":
         render_assignment_details_page()
     elif current_page == "admin" and is_admin():

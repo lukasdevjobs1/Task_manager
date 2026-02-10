@@ -199,11 +199,15 @@ def render_assignment_details_page():
 
         col1, col2 = st.columns(2)
         with col1:
-            st.markdown(f"**Atribuído por:** {detail['assigner_name']}")
-            st.markdown(f"**Atribuído para:** {detail['assignee_name']} ({detail['assignee_team'].capitalize()})")
-            st.markdown(f"**Criado em:** {detail['created_at'] if isinstance(detail['created_at'], str) else detail['created_at'].strftime('%d/%m/%Y %H:%M')}")
-            if detail["updated_at"]:
-                st.markdown(f"**Atualizado em:** {detail['updated_at'] if isinstance(detail['updated_at'], str) else detail['updated_at'].strftime('%d/%m/%Y %H:%M')}")
+            # Usar os nomes corretos retornados pelo Supabase
+            assigner_name = detail.get('assigned_by_user', {}).get('full_name', 'N/A') if isinstance(detail.get('assigned_by_user'), dict) else 'N/A'
+            assignee_name = detail.get('assigned_to_user', {}).get('full_name', 'N/A') if isinstance(detail.get('assigned_to_user'), dict) else 'N/A'
+            
+            st.markdown(f"**Atribuído por:** {assigner_name}")
+            st.markdown(f"**Atribuído para:** {assignee_name}")
+            st.markdown(f"**Criado em:** {detail.get('created_at', 'N/A')}")
+            if detail.get("updated_at"):
+                st.markdown(f"**Atualizado em:** {detail.get('updated_at', 'N/A')}")
 
         with col2:
             if detail["address"]:
@@ -238,14 +242,17 @@ def render_assignment_details_page():
     with tab2:
         st.subheader("Fotos da Execução")
 
-        if detail["photos"]:
+        # Buscar fotos usando o db
+        photos = db.get_assignment_photos(assignment_id)
+        
+        if photos:
             cols = st.columns(3)
-            for i, photo in enumerate(detail["photos"]):
+            for i, photo in enumerate(photos):
                 with cols[i % 3]:
-                    if photo["url"]:
-                        st.image(photo["url"], caption=photo["original_name"], use_container_width=True)
+                    if photo.get("photo_url"):
+                        st.image(photo["photo_url"], caption=photo.get("original_name", "Foto"), use_container_width=True)
                     else:
-                        st.warning(f"Foto não disponível: {photo['original_name']}")
+                        st.warning(f"Foto não disponível: {photo.get('original_name', 'Sem nome')}")
         else:
             st.info("Nenhuma foto adicionada ainda.")
 
@@ -254,18 +261,16 @@ def render_assignment_details_page():
 
         # Ações do assignee (usuário de campo)
         if is_assignee:
-            if detail["status"] == "pending":
+            if detail["status"] == "pendente":
                 if st.button("▶ Iniciar Tarefa", use_container_width=True, type="primary"):
-                    success, msg = update_assignment_status(
-                        assignment_id, "in_progress", user["company_id"], user["id"]
-                    )
+                    success, msg = db.update_task_status(assignment_id, "em_andamento")
                     if success:
                         st.success(msg)
                         st.rerun()
                     else:
                         st.error(msg)
 
-            if detail["status"] == "in_progress":
+            if detail["status"] == "em_andamento":
                 st.markdown("**Concluir Tarefa**")
                 observations = st.text_area(
                     "Observações da execução",
@@ -273,9 +278,8 @@ def render_assignment_details_page():
                     key="complete_obs",
                 )
                 if st.button("✅ Concluir Tarefa", use_container_width=True, type="primary"):
-                    success, msg = update_assignment_status(
-                        assignment_id, "completed", user["company_id"], user["id"],
-                        observations=observations if observations else None,
+                    success, msg = db.update_task_status(
+                        assignment_id, "concluida", observations if observations else None
                     )
                     if success:
                         st.success(msg)
@@ -283,50 +287,39 @@ def render_assignment_details_page():
                     else:
                         st.error(msg)
 
-            if detail["status"] in ["pending", "in_progress"]:
+            if detail["status"] in ["pendente", "em_andamento"]:
                 st.markdown("---")
                 st.markdown("**Atualizar Observações**")
                 new_obs = st.text_area(
                     "Observações",
-                    value=detail["observations"] or "",
+                    value=detail.get("notes") or "",
                     key="update_obs",
                 )
                 if st.button("Salvar Observações", key="save_obs"):
-                    session = SessionLocal()
-                    try:
-                        assignment = session.query(TaskAssignment).filter(
-                            TaskAssignment.id == assignment_id
-                        ).first()
-                        if assignment:
-                            assignment.observations = new_obs
-                            assignment.updated_at = datetime.utcnow()
-                            session.commit()
-                            st.success("Observações salvas!")
-                            st.rerun()
-                    except Exception as e:
-                        session.rollback()
-                        st.error(f"Erro: {str(e)}")
-                    finally:
-                        session.close()
+                    success, msg = db.update_task_status(assignment_id, detail["status"], new_obs)
+                    if success:
+                        st.success("Observações salvas!")
+                        st.rerun()
+                    else:
+                        st.error(msg)
 
         # Ações do admin/gerente
         if is_assigner or is_admin():
             st.markdown("---")
             st.markdown("**Ações do Gerente**")
 
-            if detail["status"] != "completed":
+            if detail["status"] != "concluida":
+                status_map = {"pendente": "Pendente", "em_andamento": "Em Andamento", "concluida": "Concluída"}
                 new_status = st.selectbox(
                     "Alterar Status",
-                    options=["pending", "in_progress", "completed"],
-                    format_func=lambda x: {"pending": "Pendente", "in_progress": "Em Andamento", "completed": "Concluída"}[x],
-                    index=max(0, ["pending", "in_progress", "completed"].index(detail["status"]) if detail["status"] in ["pending", "in_progress", "completed"] else 0),
+                    options=["pendente", "em_andamento", "concluida"],
+                    format_func=lambda x: status_map[x],
+                    index=max(0, list(status_map.keys()).index(detail["status"]) if detail["status"] in status_map else 0),
                     key="admin_status",
                 )
                 if st.button("Atualizar Status", key="admin_update_status"):
                     if new_status != detail["status"]:
-                        success, msg = update_assignment_status(
-                            assignment_id, new_status, user["company_id"], user["id"]
-                        )
+                        success, msg = db.update_task_status(assignment_id, new_status)
                         if success:
                             st.success(msg)
                             st.rerun()
@@ -339,10 +332,4 @@ def render_assignment_details_page():
             confirm = st.checkbox("Confirmo que desejo excluir esta tarefa", key="confirm_delete")
             if confirm:
                 if st.button("🗑 Excluir Tarefa", type="secondary", use_container_width=True):
-                    success, msg = delete_assignment(assignment_id, user["company_id"])
-                    if success:
-                        st.success(msg)
-                        st.session_state["current_page"] = "dashboard"
-                        st.rerun()
-                    else:
-                        st.error(msg)
+                    st.error("Função de exclusão desabilitada. Use o sistema de administração.")

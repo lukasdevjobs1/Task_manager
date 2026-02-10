@@ -79,19 +79,20 @@ export default function App() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ status: newStatus, notes }),
+        body: JSON.stringify({ status: newStatus, notes: notes }),
       });
 
       const data = await response.json();
 
       if (data.success) {
-        loadUserTasks(currentUser.id);
         Alert.alert('Sucesso', 'Status da tarefa atualizado!');
+        loadUserTasks(currentUser.id);
       } else {
-        Alert.alert('Erro', data.message);
+        Alert.alert('Erro', data.message || 'Erro ao atualizar tarefa');
       }
     } catch (error) {
-      Alert.alert('Erro', 'Erro ao atualizar tarefa');
+      console.error('Erro ao atualizar tarefa:', error);
+      Alert.alert('Erro', 'Erro de conexão ao atualizar tarefa');
     }
   };
 
@@ -182,11 +183,8 @@ export default function App() {
           </TouchableOpacity>
 
           <Text style={styles.testInfo}>
-            Usuários do banco PostgreSQL:
-            {"\n"}• joao.tecnico / 123456
-            {"\n"}• maria.instaladora / 123456
-            {"\n"}• lucas.campo / 123456
-            {"\n"}• felipe.rede / 123456
+            Credenciais de acesso:
+            {"\n"}• jj.gc / gcnet123
           </Text>
         </View>
       </View>

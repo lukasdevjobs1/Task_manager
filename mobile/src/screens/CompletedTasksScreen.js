@@ -1,254 +1,140 @@
-import React, { useState, useCallback } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  RefreshControl,
-} from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { supabase } from '../config/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { getMyTasks } from '../services/tasks';
+
+const colors = {
+  primary: "#6366f1",
+  secondary: "#06b6d4",
+  success: "#10b981",
+  warning: "#f59e0b",
+  error: "#ef4444",
+  background: "#f8fafc",
+  surface: "#ffffff",
+  text: "#1e293b",
+  textSecondary: "#64748b",
+  border: "#e2e8f0",
+};
 
 export default function CompletedTasksScreen({ navigation }) {
   const { user } = useAuth();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
 
-  const fetchCompletedTasks = useCallback(async () => {
+  useEffect(() => {
+    loadCompletedTasks();
+  }, []);
+
+  const loadCompletedTasks = async () => {
     try {
-      setLoading(true);
-      const allTasks = await getMyAssignments(user.id);
-      // Filtrar apenas tarefas concluídas - considerar ambos os status
-      const completedTasks = allTasks.filter(task => 
-        task.status === 'concluida' || task.status === 'completed'
-      );
-      setTasks(completedTasks);
+      const { data, error } = await supabase
+        .from('task_assignments')
+        .select('*')
+        .eq('assigned_to', user.id)
+        .eq('status', 'concluida')
+        .order('completed_at', { ascending: false });
+
+      if (error) throw error;
+      setTasks(data || []);
     } catch (error) {
-      console.error('Error fetching completed tasks:', error);
+      console.error('Erro ao carregar tarefas:', error);
     } finally {
       setLoading(false);
     }
-  }, [user.id]);
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await fetchCompletedTasks();
-    setRefreshing(false);
-  }, [fetchCompletedTasks]);
-
-  useFocusEffect(
-    useCallback(() => {
-      fetchCompletedTasks();
-    }, [fetchCompletedTasks])
-  );
-
-  const formatDate = (dateString) => {
-    if (!dateString) return '-';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
   };
 
-  const renderTaskItem = ({ item }) => (
-    <TouchableOpacity
-      style={styles.taskCard}
-      onPress={() => navigation.navigate('TaskDetail', { assignmentId: item.id })}
-    >
-      <View style={styles.taskHeader}>
-        <View style={styles.taskInfo}>
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('pt-BR');
+  };
+
+  const extractMaterials = (materials) => {
+    if (!materials) return { ctos: 0, ceos: 0 };
+    const ctoMatch = materials.match(/(\d+)\s*cto/gi);
+    const ceoMatch = materials.match(/(\d+)\s*ceo/gi);
+    return {
+      ctos: ctoMatch ? parseInt(ctoMatch[0].match(/\d+/)[0]) : 0,
+      ceos: ceoMatch ? parseInt(ceoMatch[0].match(/\d+/)[0]) : 0
+    };
+  };
+
+  const renderTask = ({ item }) => {
+    const materials = extractMaterials(item.materials);
+    return (
+      <TouchableOpacity 
+        style={styles.taskCard}
+        onPress={() => navigation.navigate('TaskDetail', { assignmentId: item.id })}
+      >
+        <View style={styles.taskHeader}>
           <Text style={styles.taskTitle}>{item.title}</Text>
-          <Text style={styles.taskDescription} numberOfLines={2}>
-            {item.description || 'Sem descrição'}
-          </Text>
-          {item.address && (
-            <View style={styles.addressRow}>
-              <Ionicons name="location-outline" size={14} color="#666" />
-              <Text style={styles.addressText} numberOfLines={1}>
-                {item.address}
-              </Text>
-            </View>
-          )}
+          <Text style={styles.taskDate}>{formatDate(item.completed_at)}</Text>
         </View>
-        <View style={styles.taskMeta}>
-          <View style={styles.completedBadge}>
-            <Ionicons name="checkmark-circle" size={16} color="#4caf50" />
-            <Text style={styles.completedText}>Concluída</Text>
+        <Text style={styles.taskAddress} numberOfLines={1}>📍 {item.address}</Text>
+        <View style={styles.materialsRow}>
+          <View style={styles.materialItem}>
+            <Ionicons name="hardware-chip" size={16} color={colors.primary} />
+            <Text style={styles.materialText}>{materials.ctos} CTOs</Text>
+          </View>
+          <View style={styles.materialItem}>
+            <Ionicons name="business" size={16} color={colors.secondary} />
+            <Text style={styles.materialText}>{materials.ceos} CEOs</Text>
           </View>
         </View>
-      </View>
-      
-      <View style={styles.taskFooter}>
-        <Text style={styles.completedDate}>
-          Concluída em: {formatDate(item.completed_at)}
-        </Text>
-        {item.photos && item.photos.length > 0 && (
-          <View style={styles.photoIndicator}>
-            <Ionicons name="camera" size={14} color="#666" />
-            <Text style={styles.photoCount}>{item.photos.length}</Text>
-          </View>
-        )}
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#1a73e8" />
-        <Text style={styles.loadingText}>Carregando tarefas concluídas...</Text>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>Carregando histórico...</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      {tasks.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="checkmark-done-circle-outline" size={64} color="#ccc" />
-          <Text style={styles.emptyTitle}>Nenhuma tarefa concluída</Text>
-          <Text style={styles.emptySubtitle}>
-            As tarefas que você concluir aparecerão aqui
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={tasks}
-          renderItem={renderTaskItem}
-          keyExtractor={(item) => item.id.toString()}
-          contentContainerStyle={styles.listContainer}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-          showsVerticalScrollIndicator={false}
-        />
-      )}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Tarefas Concluídas</Text>
+        <View style={{ width: 24 }} />
+      </View>
+
+      <FlatList
+        data={tasks}
+        renderItem={renderTask}
+        keyExtractor={(item) => item.id.toString()}
+        contentContainerStyle={styles.listContainer}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Ionicons name="checkmark-circle-outline" size={64} color={colors.textSecondary} />
+            <Text style={styles.emptyText}>Nenhuma tarefa concluída ainda</Text>
+          </View>
+        }
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#666',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#333',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptySubtitle: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  listContainer: {
-    padding: 16,
-  },
-  taskCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  taskHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  taskInfo: {
-    flex: 1,
-    marginRight: 12,
-  },
-  taskTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1a1a1a',
-    marginBottom: 4,
-  },
-  taskDescription: {
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-    marginBottom: 8,
-  },
-  addressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  addressText: {
-    fontSize: 13,
-    color: '#666',
-    marginLeft: 4,
-    flex: 1,
-  },
-  taskMeta: {
-    alignItems: 'flex-end',
-  },
-  completedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#e8f5e8',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  completedText: {
-    fontSize: 12,
-    color: '#4caf50',
-    fontWeight: '600',
-    marginLeft: 4,
-  },
-  taskFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  completedDate: {
-    fontSize: 12,
-    color: '#666',
-    fontWeight: '500',
-  },
-  photoIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  photoCount: {
-    fontSize: 12,
-    color: '#666',
-    marginLeft: 4,
-  },
+  container: { flex: 1, backgroundColor: colors.background },
+  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
+  loadingText: { marginTop: 12, fontSize: 16, color: colors.textSecondary },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, backgroundColor: colors.surface },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
+  listContainer: { padding: 16 },
+  taskCard: { backgroundColor: colors.surface, padding: 16, borderRadius: 12, marginBottom: 12 },
+  taskHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  taskTitle: { fontSize: 16, fontWeight: '600', color: colors.text, flex: 1 },
+  taskDate: { fontSize: 12, color: colors.textSecondary },
+  taskAddress: { fontSize: 14, color: colors.textSecondary, marginBottom: 12 },
+  materialsRow: { flexDirection: 'row', gap: 16 },
+  materialItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  materialText: { fontSize: 12, color: colors.textSecondary },
+  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 100 },
+  emptyText: { fontSize: 16, color: colors.textSecondary, marginTop: 16 },
 });

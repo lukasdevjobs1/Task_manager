@@ -13,6 +13,7 @@ import TaskDetailScreen from '../screens/TaskDetailScreen';
 import TaskExecuteScreen from '../screens/TaskExecuteScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import MetricsScreen from '../screens/MetricsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -45,6 +46,16 @@ function HomeStackNavigator() {
         name="TaskExecute"
         component={TaskExecuteScreen}
         options={{ title: 'Executar Tarefa' }}
+      />
+      <HomeStack.Screen
+        name="Metrics"
+        component={MetricsScreen}
+        options={{ title: 'Minhas Métricas' }}
+      />
+      <HomeStack.Screen
+        name="CompletedTasks"
+        component={CompletedTasksScreen}
+        options={{ title: 'Tarefas Concluídas' }}
       />
     </HomeStack.Navigator>
   );

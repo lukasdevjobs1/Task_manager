@@ -273,15 +273,21 @@ class SupabaseDatabase:
             print(f"Erro ao buscar tarefa: {e}")
             return None
     
-    def update_task_status(self, assignment_id: int, status: str, observations: str = None) -> tuple[bool, str]:
+    def update_task_status(self, assignment_id: int, status: str, notes: str = None) -> tuple[bool, str]:
         """Atualiza status da tarefa"""
         try:
             update_data = {
                 'status': status,
                 'updated_at': datetime.utcnow().isoformat()
             }
-            if observations:
-                update_data['observations'] = observations
+            
+            if status == 'em_andamento':
+                update_data['started_at'] = datetime.utcnow().isoformat()
+            elif status == 'concluida':
+                update_data['completed_at'] = datetime.utcnow().isoformat()
+            
+            if notes:
+                update_data['notes'] = notes
             
             result = self.client.table('task_assignments').update(update_data).eq('id', assignment_id).execute()
             
@@ -290,6 +296,22 @@ class SupabaseDatabase:
             return False, "Tarefa não encontrada."
         except Exception as e:
             return False, f"Erro ao atualizar status: {str(e)}"
+    
+    def update_task_materials(self, assignment_id: int, materials: str) -> tuple[bool, str]:
+        """Atualiza materiais da tarefa"""
+        try:
+            update_data = {
+                'materials': materials,
+                'updated_at': datetime.utcnow().isoformat()
+            }
+            
+            result = self.client.table('task_assignments').update(update_data).eq('id', assignment_id).execute()
+            
+            if result.data:
+                return True, "Materiais atualizados com sucesso!"
+            return False, "Tarefa não encontrada."
+        except Exception as e:
+            return False, f"Erro ao atualizar materiais: {str(e)}"
     
     # === NOTIFICAÇÕES ===
     def create_notification(self, user_id: int, company_id: int, type: str, title: str, message: str = None, reference_id: int = None) -> bool:
@@ -344,6 +366,34 @@ class SupabaseDatabase:
         except Exception as e:
             print(f"Erro ao contar notificações: {e}")
             return 0
+    
+    # === FOTOS DAS TAREFAS ===
+    def get_assignment_photos(self, assignment_id: int) -> List[dict]:
+        """Retorna fotos de uma tarefa"""
+        try:
+            result = self.client.table('assignment_photos').select('*').eq('assignment_id', assignment_id).order('uploaded_at', desc=True).execute()
+            return result.data or []
+        except Exception as e:
+            print(f"Erro ao buscar fotos: {e}")
+            return []
+    
+    def create_assignment_photo(self, assignment_id: int, photo_url: str, photo_path: str, original_name: str = None) -> tuple[bool, str]:
+        """Registra foto da tarefa no banco"""
+        try:
+            data = {
+                'assignment_id': assignment_id,
+                'photo_url': photo_url,
+                'photo_path': photo_path,
+                'original_name': original_name or photo_path,
+                'uploaded_at': datetime.utcnow().isoformat()
+            }
+            
+            result = self.client.table('assignment_photos').insert(data).execute()
+            if result.data:
+                return True, "Foto registrada com sucesso!"
+            return False, "Erro ao registrar foto."
+        except Exception as e:
+            return False, f"Erro ao registrar foto: {str(e)}"
 
 # Instância global
 db = SupabaseDatabase()
