@@ -7,11 +7,29 @@ import pandas as pd
 from datetime import datetime
 import sys
 import os
+import re
+import plotly.graph_objects as go
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from auth.authentication import require_login, get_current_user, is_admin
 from database.supabase_only_connection import db
+
+
+def extract_materials_metrics(materials_text):
+    """Extrai métricas de materiais do texto."""
+    if not materials_text:
+        return {'ctos': 0, 'ceos': 0, 'cabo_metros': 0}
+    
+    text = materials_text.lower()
+    cto_match = re.findall(r'(\d+)\s*cto', text)
+    ctos = sum(int(x) for x in cto_match) if cto_match else 0
+    ceo_match = re.findall(r'(\d+)\s*ceo', text)
+    ceos = sum(int(x) for x in ceo_match) if ceo_match else 0
+    cabo_match = re.findall(r'(\d+)\s*m', text)
+    cabo_metros = sum(int(x) for x in cabo_match) if cabo_match else 0
+    
+    return {'ctos': ctos, 'ceos': ceos, 'cabo_metros': cabo_metros}
 
 
 def get_assigned_to_me(user_id: int, company_id: int) -> list:
@@ -147,16 +165,88 @@ def render_dashboard_page():
     # Seção Admin - Visão Geral
     if is_admin():
         st.markdown("---")
+        st.header("📊 Métricas Gerenciais")
         
-        # Botão para dashboard gerencial avançado
-        col1, col2, col3 = st.columns([1, 2, 1])
+        # Obter todas as tarefas e usuários
+        all_assignments = db.get_task_assignments(user["company_id"])
+        all_users = db.get_all_users(user["company_id"])
+        
+        # Métricas de materiais
+        total_ctos = 0
+        total_ceos = 0
+        total_cabo = 0
+        
+        for assignment in all_assignments:
+            if assignment.get('status') == 'concluida' and assignment.get('materials'):
+                metrics = extract_materials_metrics(assignment['materials'])
+                total_ctos += metrics['ctos']
+                total_ceos += metrics['ceos']
+                total_cabo += metrics['cabo_metros']
+        
+        # Exibir métricas de materiais
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("🔧 CTOs Instaladas", total_ctos)
         with col2:
-            if st.button("📊 Ver Dashboard Gerencial Completo", type="primary", use_container_width=True, key="btn_manager_dash"):
-                st.session_state["current_page"] = "manager_dashboard"
-                st.rerun()
+            st.metric("📦 CEOs Instaladas", total_ceos)
+        with col3:
+            st.metric("📏 Cabo Lançado (m)", total_cabo)
         
         st.markdown("---")
-        st.header("⚙️ Visão Geral (Admin)")
+        
+        # Desempenho por equipe
+        st.subheader("👥 Desempenho por Equipe")
+        
+        team_stats = {}
+        for user_data in all_users:
+            if user_data['role'] == 'admin':
+                continue
+            
+            team = user_data['team']
+            if team not in team_stats:
+                team_stats[team] = {'members': [], 'completed': 0, 'pending': 0, 'in_progress': 0}
+            
+            user_assignments = [a for a in all_assignments if a.get('assigned_to') == user_data['id']]
+            completed = len([a for a in user_assignments if a.get('status') == 'concluida'])
+            pending = len([a for a in user_assignments if a.get('status') == 'pendente'])
+            in_progress = len([a for a in user_assignments if a.get('status') == 'em_andamento'])
+            
+            team_stats[team]['members'].append({
+                'name': user_data['full_name'],
+                'completed': completed,
+                'pending': pending,
+                'in_progress': in_progress,
+                'total': len(user_assignments)
+            })
+            team_stats[team]['completed'] += completed
+            team_stats[team]['pending'] += pending
+            team_stats[team]['in_progress'] += in_progress
+        
+        # Exibir por equipe
+        for team_name, stats in team_stats.items():
+            with st.expander(f"🔹 Equipe {team_name.capitalize()} - {len(stats['members'])} membros", expanded=True):
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Concluídas", stats['completed'])
+                with col2:
+                    st.metric("Em Andamento", stats['in_progress'])
+                with col3:
+                    st.metric("Pendentes", stats['pending'])
+                
+                # Tabela de membros
+                if stats['members']:
+                    members_df = pd.DataFrame(stats['members'])
+                    members_df = members_df.rename(columns={
+                        'name': 'Nome',
+                        'total': 'Total',
+                        'completed': 'Concluídas',
+                        'in_progress': 'Em Andamento',
+                        'pending': 'Pendentes'
+                    })
+                    st.dataframe(members_df, use_container_width=True, hide_index=True)
+        
+        st.markdown("---")
+        st.header("⚙️ Tarefas Atribuídas")
 
         # Tarefas que eu atribuí
         st.subheader("Tarefas que Atribuí")

@@ -200,10 +200,9 @@ def render_sidebar():
         notif_label = f"🔔 Notificações ({unread})" if unread > 0 else "🔔 Notificações"
 
         # Menu de navegação usando radio
-        menu_options = ["📊 Dashboard", "📋 Dashboard Gerencial", "📝 Nova Tarefa", notif_label]
+        menu_options = ["📊 Dashboard", "📝 Nova Tarefa", notif_label]
 
         if is_admin():
-            menu_options.insert(1, "📋 Dashboard Gerencial")
             menu_options.append("📋 Atribuir Tarefa")
             menu_options.append("✅ Tarefas Concluídas")
             menu_options.append("⚙️ Administração")
@@ -211,7 +210,6 @@ def render_sidebar():
         # Mapeia opções para páginas
         page_map = {
             "📊 Dashboard": "dashboard",
-            "📋 Dashboard Gerencial": "manager_dashboard",
             "📝 Nova Tarefa": "register",
             notif_label: "notifications",
             "📋 Atribuir Tarefa": "assign_task",
