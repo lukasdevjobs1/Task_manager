@@ -340,4 +340,20 @@ def render_assignment_details_page():
             confirm = st.checkbox("Confirmo que desejo excluir esta tarefa", key="confirm_delete")
             if confirm:
                 if st.button("🗑 Excluir Tarefa", type="secondary", use_container_width=True):
-                    st.error("Função de exclusão desabilitada. Use o sistema de administração.")
+                    try:
+                        # Excluir fotos primeiro
+                        photos = db.get_assignment_photos(assignment_id)
+                        for photo in photos:
+                            db.client.table('assignment_photos').delete().eq('id', photo['id']).execute()
+                        
+                        # Excluir tarefa
+                        result = db.client.table('task_assignments').delete().eq('id', assignment_id).eq('company_id', user['company_id']).execute()
+                        
+                        if result.data:
+                            st.success("Tarefa excluída com sucesso!")
+                            st.session_state["current_page"] = "dashboard"
+                            st.rerun()
+                        else:
+                            st.error("Erro ao excluir tarefa.")
+                    except Exception as e:
+                        st.error(f"Erro ao excluir: {str(e)}")
