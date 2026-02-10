@@ -220,7 +220,6 @@ class SupabaseDatabase:
             data = {
                 'company_id': assignment_data['company_id'],
                 'assigned_by': assignment_data['assigned_by'],
-                'assigned_to': assignment_data.get('assigned_to'),  # Pode ser None
                 'title': assignment_data['title'],
                 'description': assignment_data.get('description'),
                 'address': assignment_data.get('address'),
@@ -232,6 +231,10 @@ class SupabaseDatabase:
                 'created_at': datetime.utcnow().isoformat(),
                 'updated_at': datetime.utcnow().isoformat()
             }
+            
+            # Só adiciona assigned_to se não for None
+            if assignment_data.get('assigned_to') is not None:
+                data['assigned_to'] = assignment_data['assigned_to']
             
             result = self.client.table('task_assignments').insert(data).execute()
             assignment_id = result.data[0]['id'] if result.data else None
