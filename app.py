@@ -13,12 +13,20 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 def _logo_base64() -> str:
     """Retorna a tasklogo como string base64 para embed no HTML."""
     try:
-        logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                 "assets", "icons", "tasklogo.png")
-        with open(logo_path, "rb") as f:
-            return base64.b64encode(f.read()).decode()
+        candidates = [
+            # Caminho relativo ao cwd (Streamlit Cloud usa o root do repo)
+            os.path.join(os.getcwd(), "assets", "icons", "tasklogo.png"),
+            # Caminho relativo ao arquivo app.py
+            os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                         "assets", "icons", "tasklogo.png"),
+        ]
+        for path in candidates:
+            if os.path.isfile(path):
+                with open(path, "rb") as f:
+                    return base64.b64encode(f.read()).decode()
     except Exception:
-        return ""
+        pass
+    return ""
 
 from auth.authentication import (
     is_logged_in,
