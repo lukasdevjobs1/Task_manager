@@ -56,11 +56,6 @@ Este repositório contém principalmente o **app Flutter (`lib/`)** usado em pro
 ---
 
 ## Capturas de tela
-
-### Ícone do app
-
-![Ícone do App](assets/icons/Captura%20de%20tela%202026-02-04%20043618.png)
-
 ### Tela em funcionamento
 
 ![App em funcionamento](assets/images/Captura%20de%20tela%202026-03-01%20153218.png)
