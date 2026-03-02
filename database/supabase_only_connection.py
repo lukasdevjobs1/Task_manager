@@ -228,6 +228,7 @@ class SupabaseDatabase:
                 'status': assignment_data.get('status', 'pendente'),
                 'priority': assignment_data.get('priority', 'media'),
                 'due_date': assignment_data.get('due_date'),
+                'empresa_nome': assignment_data.get('empresa_nome'),
                 'created_at': datetime.utcnow().isoformat(),
                 'updated_at': datetime.utcnow().isoformat()
             }

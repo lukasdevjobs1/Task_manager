@@ -57,6 +57,8 @@ Thumbs.db
 # Logs
 *.log
 
-# Database backups
-*.sql
+# Database backups (dumps e exports — nunca commitar)
 *.dump
+*.sql
+# Exceção: scripts de migração SQL versionados
+!migrations/*.sql

@@ -60,7 +60,14 @@ def render_task_management_page():
     with tab1:
         st.subheader("Nova Tarefa")
         
+        # Busca empresas ativas (fora do form para evitar chamadas desnecessárias)
+        empresas_result = db.client.table('companies').select('name').eq('active', True).order('name').execute()
+        empresa_options = [e['name'] for e in empresas_result.data] if empresas_result.data else []
+
         with st.form("create_task_form", clear_on_submit=True):
+            # Empresa
+            empresa_nome = st.selectbox("Empresa *", empresa_options) if empresa_options else st.text_input("Empresa *", placeholder="Nome da empresa")
+
             # Atribuição
             assign_now = st.checkbox("Atribuir a um colaborador agora", value=False)
             
@@ -142,6 +149,7 @@ def render_task_management_page():
                     'longitude': longitude,
                     'priority': priority_map[priority],
                     'due_date': due_date.isoformat() if due_date else None,
+                    'empresa_nome': empresa_nome if empresa_nome else None,
                 }
                 
                 success, message, task_id = db.create_task_assignment(assignment_data)
