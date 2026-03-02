@@ -1,3 +1,112 @@
+## Task Manager ISP
+
+Aplicação completa de **gerenciamento de tarefas de campo para provedores de internet (ISP)**, composta por:
+
+- **App mobile Flutter** utilizado pelos técnicos em campo.
+- **Painel Web (Streamlit)** para gestores acompanharem operações.
+- **Backend em Supabase (Postgres, Storage, Realtime)** com scripts de apoio em Python.
+
+Este repositório contém principalmente o **app Flutter (`lib/`)** usado em produção pelos técnicos.
+
+---
+
+## Principais funcionalidades
+
+- **Autenticação segura**
+  - Login de técnicos e gestores integrado ao Supabase.
+  - Armazenamento seguro de tokens.
+
+- **Gestão de tarefas de campo**
+  - Criação, atribuição e atualização de tarefas.
+  - Status de tarefa (pendente, em andamento, concluída).
+  - Histórico e detalhes completos de cada atendimento.
+
+- **Modo offline e sincronização**
+  - Uso de `sqflite`/`hive` para cache e trabalho offline.
+  - Sincronização automática quando a conexão volta.
+
+- **Localização e mapas**
+  - Visualização de tarefas no mapa (`google_maps_flutter`).
+  - Geolocalização e geocoding para endereços.
+
+- **Fotos, anexos e assinatura**
+  - Captura de fotos com `camera`/`image_picker`.
+  - Upload para o Storage do Supabase.
+  - Coleta de assinatura do cliente na conclusão.
+
+- **Notificações**
+  - Push notifications via Firebase Cloud Messaging.
+  - Notificações locais para lembretes e atualizações.
+
+---
+
+## Novidades recentes
+
+- **Tela de Relatórios aprimorada**
+  - Filtros rápidos por **7, 30 e 90 dias**.
+  - Cartões de resumo com **Total**, **Concluídas**, **Pendentes** e **Em andamento** no período selecionado.
+  - Gráfico de **distribuição de status** (pizza) destacando proporções de tarefas concluídas e em andamento.
+  - Gráfico de **tarefas concluídas por dia** nos últimos 7 dias.
+  - Interface em **tema escuro**, otimizada para uso em campo.
+
+- **Indicadores visuais no app**
+  - Aba de **Relatórios** destacada na bottom navigation quando ativa.
+  - **Badge de notificações** na aba de Perfil, exibindo pendências/alertas recentes.
+
+---
+
+## Capturas de tela
+
+Tela de **Relatórios** com resumo de produtividade e distribuição de status:
+
+```0:0:assets/screenshots/relatorios-dashboard.png
+
+```
+
+> Dica: copie a imagem fornecida (`Captura_de_tela`) para o projeto em `assets/screenshots/relatorios-dashboard.png` para que o preview funcione em plataformas como GitHub.
+
+---
+
+## Stack técnica (mobile)
+
+- **Flutter 3 / Dart (null-safe)**
+- Gerência de estado com `provider`
+- Navegação com `go_router`
+- Backend com `supabase_flutter` + `dio`
+- Offline com `sqflite`, `hive`, `hive_flutter`
+- Notificações com `firebase_core`, `firebase_messaging`, `flutter_local_notifications`
+- Mapas com `google_maps_flutter`, `geolocator`, `geocoding`
+- Gráficos com `fl_chart`
+
+---
+
+## Como executar o app
+
+1. **Instalar dependências**
+
+   ```bash
+   flutter pub get
+   ```
+
+2. **Configurar variáveis de ambiente**
+   - Crie um arquivo `.env` (ou equivalente) com:
+     - URL e chave do Supabase.
+     - Configurações do Firebase (mensageria).
+   - Nunca versione segredos neste repositório.
+
+3. **Rodar o app**
+   ```bash
+   flutter run
+   ```
+
+---
+
+## Próximos passos sugeridos
+
+- Documentar em mais detalhes o **modelo de dados** (tabelas do Supabase e regras de RLS).
+- Adicionar mais capturas de tela (telas de tarefas, detalhes, mapa, fluxo de conclusão).
+- Incluir uma seção de **changelog** com as próximas versões do app.
+
 # 📱 Task Manager ISP - App Flutter
 
 App mobile profissional em Flutter para gerenciamento de tarefas de campo para provedores de internet (ISP).
@@ -5,12 +114,14 @@ App mobile profissional em Flutter para gerenciamento de tarefas de campo para p
 ## 🎯 Funcionalidades Implementadas
 
 ### ✅ Autenticação
+
 - Login com username/senha
 - Persistência de sessão (FlutterSecureStorage)
 - Logout seguro
 - Integração com Supabase
 
 ### 📋 Gerenciamento de Tarefas
+
 - **Dashboard** com estatísticas em tempo real
 - **Lista de tarefas** com filtros (Todas, Pendentes, Em Andamento, Concluídas)
 - **Detalhes completos** de cada tarefa
@@ -19,6 +130,7 @@ App mobile profissional em Flutter para gerenciamento de tarefas de campo para p
 - **Alertas de prazo** vencido
 
 ### 📸 Execução de Tarefas
+
 - Câmera integrada para fotos
 - Seleção de múltiplas fotos da galeria
 - Upload automático para Supabase Storage
@@ -26,29 +138,34 @@ App mobile profissional em Flutter para gerenciamento de tarefas de campo para p
 - Mudança de status (Pendente → Em Andamento → Concluída)
 
 ### 🔔 Notificações
+
 - Push notifications (Firebase Cloud Messaging)
 - Notificações in-app
 - Badge com contador de não lidas
 - Marcar como lida individual ou todas
 
 ### 💬 Chat
+
 - Chat em tempo real com gerente
 - Interface moderna de mensagens
 - Histórico de conversas
 
 ### 📊 Relatórios
+
 - Estatísticas detalhadas
 - Gráficos de pizza para distribuição de status
 - Métricas de produtividade
 - Histórico de tarefas concluídas
 
 ### 🔄 Modo Offline
+
 - Cache local de tarefas (Hive)
 - Sincronização automática quando voltar online
 - Indicador de pendências
 - Fila de atualizações offline
 
 ### 🎨 Interface
+
 - **Material Design 3** profissional
 - Tema claro e escuro
 - Animações suaves
@@ -58,31 +175,38 @@ App mobile profissional em Flutter para gerenciamento de tarefas de campo para p
 ## 🛠️ Tecnologias Utilizadas
 
 ### Core
+
 - **Flutter SDK** 3.0+
 - **Dart** 3.0+
 
 ### Backend & Database
+
 - **Supabase Flutter** - Banco de dados e autenticação
 - **PostgreSQL** - Banco relacional via Supabase
 
 ### State Management
+
 - **Provider** - Gerenciamento de estado reativo
 
 ### Navigation
+
 - **GoRouter** - Roteamento declarativo
 
 ### Storage
+
 - **Hive** - Cache local para modo offline
 - **FlutterSecureStorage** - Armazenamento seguro de credenciais
 - **SharedPreferences** - Preferências do usuário
 
 ### UI/UX
+
 - **Google Fonts** - Tipografia profissional (Inter)
 - **FL Chart** - Gráficos e visualizações
 - **Shimmer** - Loading skeletons
 - **CachedNetworkImage** - Cache de imagens
 
 ### Features
+
 - **Camera** - Captura de fotos
 - **ImagePicker** - Seleção de imagens
 - **GoogleMapsFlutter** - Mapas e localização
@@ -136,6 +260,7 @@ flutter_task_manager/
 ## 🚀 Como Executar
 
 ### Pré-requisitos
+
 ```bash
 # Flutter SDK instalado
 flutter --version  # Deve ser 3.0+
@@ -149,12 +274,14 @@ flutter --version  # Deve ser 3.0+
 ### Instalação
 
 1. **Instalar dependências**
+
 ```bash
 cd /app/flutter_task_manager
 flutter pub get
 ```
 
 2. **Configurar Firebase** (para push notifications)
+
 ```bash
 # Baixar google-services.json do Firebase Console
 # Colocar em: android/app/google-services.json
@@ -164,6 +291,7 @@ flutter pub get
 ```
 
 3. **Configurar Google Maps API Key**
+
 ```bash
 # Android: android/app/src/main/AndroidManifest.xml
 <meta-data
@@ -177,16 +305,19 @@ GMSServices.provideAPIKey("SUA_API_KEY_AQUI")
 ### Executar no Desenvolvimento
 
 **Android:**
+
 ```bash
 flutter run -d android
 ```
 
 **iOS:**
+
 ```bash
 flutter run -d ios
 ```
 
 **Web (teste):**
+
 ```bash
 flutter run -d chrome
 ```
@@ -194,18 +325,21 @@ flutter run -d chrome
 ### Build para Produção
 
 **Android APK:**
+
 ```bash
 flutter build apk --release
 # APK gerado em: build/app/outputs/flutter-apk/app-release.apk
 ```
 
 **Android App Bundle (Google Play):**
+
 ```bash
 flutter build appbundle --release
 # AAB gerado em: build/app/outputs/bundle/release/app-release.aab
 ```
 
 **iOS:**
+
 ```bash
 flutter build ios --release
 # Depois, abrir no Xcode para assinar e fazer upload
@@ -214,21 +348,25 @@ flutter build ios --release
 ## 🔧 Configuração
 
 ### Credenciais Supabase
+
 As credenciais já estão configuradas em `lib/main.dart`:
+
 ```dart
 await Supabase.initialize(
-  url: 'https://ntatkxgsykdnsfrqxwnz.supabase.co',
+  url: 'https://qweqxsyesdgfqwe.supabase.co',
   anonKey: 'sua_chave_aqui',
 );
 ```
 
 ### Temas
+
 Para alterar as cores, edite `lib/config/theme.dart`:
+
 ```dart
 static const Color primaryColor = Color(0xFF1a73e8); // Azul profissional
 ```
 
-## 📱 Telas do App
+## Telas do App
 
 1. **Login** - Autenticação
 2. **Home** - Dashboard com lista de tarefas e estatísticas
@@ -240,24 +378,27 @@ static const Color primaryColor = Color(0xFF1a73e8); // Azul profissional
 8. **Relatórios** - Estatísticas e gráficos
 9. **Tarefas Concluídas** - Histórico
 
-## 🎨 Design System
+## Design System
 
 ### Cores Principais
+
 - **Primary**: `#1a73e8` (Azul profissional)
 - **Secondary**: `#34A853` (Verde sucesso)
 - **Error**: `#EA4335` (Vermelho)
 - **Warning**: `#FBBC04` (Amarelo)
 
 ### Status
+
 - **Pendente**: Amarelo
 - **Em Andamento**: Azul
 - **Concluída**: Verde
 
 ### Tipografia
+
 - **Fonte**: Inter (Google Fonts)
 - **Estilo**: Profissional e limpo
 
-## 🔐 Segurança
+## Segurança
 
 - ✅ Credenciais armazenadas com **FlutterSecureStorage**
 - ✅ Tokens JWT para sessões
@@ -273,7 +414,7 @@ static const Color primaryColor = Color(0xFF1a73e8); // Azul profissional
 - ✅ Otimização de builds
 - ✅ Sincronização inteligente
 
-## 🐛 Debug
+## Debug
 
 ```bash
 # Verificar problemas
@@ -286,27 +427,31 @@ flutter logs
 flutter clean && flutter pub get
 ```
 
-## 🚢 Deploy
+## Deploy
 
 ### Android (Google Play)
+
 1. Criar keystore para assinatura
 2. Build do App Bundle: `flutter build appbundle`
 3. Upload no Google Play Console
 
 ### iOS (App Store)
+
 1. Configurar certificados no Xcode
 2. Build: `flutter build ios`
 3. Archive e upload via Xcode
 
-## 📝 Credenciais de Teste
+## Credenciais de Teste
 
 Use as credenciais existentes no sistema:
-- **Usuário**: `jj.gc` ou `joao.tecnico`
+
+- **Usuário**: 'seu_user'
 - **Senha**: (conforme cadastrado no sistema)
 
-## 🤝 Integração com Backend
+## Integração com Backend
 
 O app se conecta diretamente ao Supabase (PostgreSQL):
+
 - **Tabelas**: `users`, `task_assignments`, `assignment_photos`, `notifications`, `chat_messages`
 - **Storage**: Bucket `task-photos`
 - **Real-time**: Subscriptions para updates automáticos
@@ -314,19 +459,9 @@ O app se conecta diretamente ao Supabase (PostgreSQL):
 ## 📞 Suporte
 
 Para dúvidas ou problemas:
+
 1. Verificar documentação do Flutter
 2. Verificar logs: `flutter logs`
 3. Verificar conexão com Supabase
 
-## 🎯 Próximos Passos
-
-- [ ] Assinatura digital na conclusão
-- [ ] Reconhecimento de voz para observações
-- [ ] IA para otimização de rotas
-- [ ] Modo offline avançado com sync inteligente
-- [ ] Widget para home screen
-- [ ] Deep links para notificações
-
----
-
-**App Flutter Task Manager ISP v1.0** - Produtividade profissional no campo! 📱✨
+**App Flutter Task Manager ISP v1.0** - Produtividade profissional no campo!

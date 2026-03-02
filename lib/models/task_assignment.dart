@@ -1,3 +1,5 @@
+import 'task_material.dart';
+
 class TaskAssignment {
   final int id;
   final int companyId;
@@ -16,12 +18,15 @@ class TaskAssignment {
   final DateTime? updatedAt;
   final DateTime? startedAt;
   final DateTime? completedAt;
-  
+
   // Dados adicionais do gerente que atribuiu
   final String? assignedByName;
-  
+
   // Fotos associadas
   final List<AssignmentPhoto>? photos;
+
+  // Materiais utilizados
+  final List<TaskMaterial>? materials;
 
   TaskAssignment({
     required this.id,
@@ -43,6 +48,7 @@ class TaskAssignment {
     this.completedAt,
     this.assignedByName,
     this.photos,
+    this.materials,
   });
 
   factory TaskAssignment.fromJson(Map<String, dynamic> json) {
@@ -77,9 +83,16 @@ class TaskAssignment {
           ? DateTime.parse(json['completed_at'] as String)
           : null,
       assignedByName: json['assigned_by_name'] as String?,
-      photos: json['photos'] != null
+      photos: (json['photos'] is List)
           ? (json['photos'] as List)
-              .map((p) => AssignmentPhoto.fromJson(p as Map<String, dynamic>))
+              .map((p) => AssignmentPhoto.fromJson(
+                  Map<String, dynamic>.from(p as Map)))
+              .toList()
+          : null,
+      materials: (json['materials'] is List)
+          ? (json['materials'] as List)
+              .map((m) => TaskMaterial.fromJson(
+                  Map<String, dynamic>.from(m as Map)))
               .toList()
           : null,
     );
@@ -106,6 +119,7 @@ class TaskAssignment {
       'completed_at': completedAt?.toIso8601String(),
       'assigned_by_name': assignedByName,
       'photos': photos?.map((p) => p.toJson()).toList(),
+      'materials': materials?.map((m) => m.toJson()).toList(),
     };
   }
 

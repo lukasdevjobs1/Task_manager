@@ -41,7 +41,7 @@ class TaskCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  
+
                   // Título e info
                   Expanded(
                     child: Column(
@@ -49,9 +49,10 @@ class TaskCard extends StatelessWidget {
                       children: [
                         Text(
                           task.title,
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -59,7 +60,7 @@ class TaskCard extends StatelessWidget {
                         if (task.assignedByName != null)
                           Row(
                             children: [
-                              Icon(
+                              const Icon(
                                 Icons.person_outline,
                                 size: 14,
                                 color: AppTheme.textSecondary,
@@ -74,7 +75,7 @@ class TaskCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  
+
                   // Badge de status
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -82,7 +83,7 @@ class TaskCard extends StatelessWidget {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.15),
+                      color: statusColor.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
@@ -96,9 +97,9 @@ class TaskCard extends StatelessWidget {
                   ),
                 ],
               ),
-              
+
               // Descrição
-              if (task.description != null && task.description!.isNotEmpty) ..[
+              if (task.description != null && task.description!.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Text(
                   task.description!,
@@ -107,11 +108,11 @@ class TaskCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
-              
+
               const SizedBox(height: 12),
               const Divider(height: 1),
               const SizedBox(height: 12),
-              
+
               // Rodapé com informações
               Row(
                 children: [
@@ -130,12 +131,12 @@ class TaskCard extends StatelessWidget {
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  
+
                   const SizedBox(width: 16),
-                  
+
                   // Localização
-                  if (task.address != null) ..[
-                    Icon(
+                  if (task.address != null) ...[
+                    const Icon(
                       Icons.location_on_outlined,
                       size: 16,
                       color: AppTheme.textSecondary,
@@ -150,9 +151,9 @@ class TaskCard extends StatelessWidget {
                       ),
                     ),
                   ],
-                  
+
                   // Data de vencimento
-                  if (task.dueDate != null) ..[
+                  if (task.dueDate != null) ...[
                     const SizedBox(width: 8),
                     Icon(
                       task.isOverdue

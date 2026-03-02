@@ -36,15 +36,17 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
     
     try {
+      print('Tentando login: $username');
       final user = await SupabaseService.authenticateUser(username, password);
+      print('Resposta do Supabase: ${user != null ? user.username : "null"}');
       
       if (user != null) {
         _user = user;
         await StorageService.saveUser(user);
-        
-        // Atualizar push token
+
+        // Atualizar push token para receber notificações
         await NotificationService.updateTokenOnServer(user.id);
-        
+
         _isLoading = false;
         notifyListeners();
         return true;
@@ -55,6 +57,7 @@ class AuthProvider with ChangeNotifier {
         return false;
       }
     } catch (e) {
+      print('Erro no login: $e');
       _errorMessage = 'Erro ao fazer login: $e';
       _isLoading = false;
       notifyListeners();

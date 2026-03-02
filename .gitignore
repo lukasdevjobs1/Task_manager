@@ -1,0 +1,62 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Environment variables
+.env
+.streamlit/secrets.toml
+
+# main.dart contém credenciais reais — use main_example.dart como referência
+lib/main.dart
+
+# Firebase credentials (NUNCA commitar!)
+firebase-credentials.json
+firebase_credentials.json
+*-firebase-adminsdk-*.json
+*firebase-adminsdk*.json
+google-services.json
+GoogleService-Info.plist
+
+# Uploads (fotos)
+uploads/*
+!uploads/.gitkeep
+
+# Flutter / Dart build artifacts
+build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.metadata
+
+# IntelliJ / Android Studio
+*.iml
+.idea/
+
+# Node / mobile tooling
+node_modules/
+
+# Outros projetos locais (não fazem parte do repositório principal)
+flutter_application_1/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Database backups
+*.sql
+*.dump

@@ -23,7 +23,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _sendMessage() {
     if (_messageController.text.trim().isEmpty) return;
-    
+
     setState(() {
       _messages.add({
         'message': _messageController.text,
@@ -38,8 +38,16 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.taskTitle),
-        subtitle: const Text('Chat com gerente'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(widget.taskTitle),
+            const Text(
+              'Chat com gerente',
+              style: TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
       ),
       body: Column(
         children: [
@@ -53,18 +61,24 @@ class _ChatScreenState extends State<ChatScreen> {
                     itemBuilder: (context, index) {
                       final message = _messages[_messages.length - 1 - index];
                       return Align(
-                        alignment: message['isMine'] ? Alignment.centerRight : Alignment.centerLeft,
+                        alignment: message['isMine']
+                            ? Alignment.centerRight
+                            : Alignment.centerLeft,
                         child: Container(
                           margin: const EdgeInsets.only(bottom: 8),
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: message['isMine'] ? AppTheme.primaryColor : Colors.grey.shade200,
+                            color: message['isMine']
+                                ? AppTheme.primaryColor
+                                : Colors.grey.shade200,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
                             message['message'],
                             style: TextStyle(
-                              color: message['isMine'] ? Colors.white : Colors.black87,
+                              color: message['isMine']
+                                  ? Colors.white
+                                  : Colors.black87,
                             ),
                           ),
                         ),
@@ -74,7 +88,7 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: Colors.white,
               boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
             ),

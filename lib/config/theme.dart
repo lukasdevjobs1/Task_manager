@@ -10,29 +10,28 @@ class AppTheme {
   static const Color surfaceColor = Colors.white;
   static const Color errorColor = Color(0xFFEA4335);
   static const Color warningColor = Color(0xFFFBBC04);
-  
+
   // Cores de Status
   static const Color pendingColor = Color(0xFFFBBC04);
   static const Color inProgressColor = Color(0xFF1a73e8);
   static const Color completedColor = Color(0xFF34A853);
-  
+
   // Text Colors
   static const Color textPrimary = Color(0xFF202124);
   static const Color textSecondary = Color(0xFF5F6368);
   static const Color textDisabled = Color(0xFF9AA0A6);
-  
+
   // Tema Claro
   static ThemeData lightTheme = ThemeData(
     useMaterial3: true,
-    colorScheme: ColorScheme.light(
+    colorScheme: const ColorScheme.light(
       primary: primaryColor,
       secondary: secondaryColor,
       error: errorColor,
       surface: surfaceColor,
-      background: backgroundColor,
     ),
     scaffoldBackgroundColor: backgroundColor,
-    
+
     // Typography
     textTheme: GoogleFonts.interTextTheme().copyWith(
       displayLarge: GoogleFonts.inter(
@@ -81,7 +80,7 @@ class AppTheme {
         color: textSecondary,
       ),
     ),
-    
+
     // AppBar Theme
     appBarTheme: AppBarTheme(
       backgroundColor: surfaceColor,
@@ -94,9 +93,9 @@ class AppTheme {
         color: textPrimary,
       ),
     ),
-    
+
     // Card Theme
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       color: surfaceColor,
       elevation: 2,
       shape: RoundedRectangleBorder(
@@ -104,7 +103,7 @@ class AppTheme {
       ),
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
     ),
-    
+
     // Button Themes
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
@@ -121,7 +120,7 @@ class AppTheme {
         ),
       ),
     ),
-    
+
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         foregroundColor: primaryColor,
@@ -136,7 +135,7 @@ class AppTheme {
         ),
       ),
     ),
-    
+
     // Input Decoration
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
@@ -159,7 +158,7 @@ class AppTheme {
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
     ),
-    
+
     // Bottom Navigation Bar
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
       backgroundColor: surfaceColor,
@@ -168,7 +167,7 @@ class AppTheme {
       elevation: 8,
       type: BottomNavigationBarType.fixed,
     ),
-    
+
     // Floating Action Button
     floatingActionButtonTheme: const FloatingActionButtonThemeData(
       backgroundColor: primaryColor,
@@ -176,21 +175,18 @@ class AppTheme {
       elevation: 4,
     ),
   );
-  
+
   // Tema Escuro
   static ThemeData darkTheme = ThemeData(
     useMaterial3: true,
-    colorScheme: ColorScheme.dark(
+    colorScheme: const ColorScheme.dark(
       primary: primaryColor,
       secondary: secondaryColor,
       error: errorColor,
-      surface: const Color(0xFF202124),
-      background: const Color(0xFF121212),
+      surface: Color(0xFF202124),
     ),
     scaffoldBackgroundColor: const Color(0xFF121212),
-    
     textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
-    
     appBarTheme: AppBarTheme(
       backgroundColor: const Color(0xFF202124),
       foregroundColor: Colors.white,
@@ -202,8 +198,7 @@ class AppTheme {
         color: Colors.white,
       ),
     ),
-    
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       color: const Color(0xFF202124),
       elevation: 2,
       shape: RoundedRectangleBorder(
@@ -212,7 +207,7 @@ class AppTheme {
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
     ),
   );
-  
+
   // Helper methods para cores de status
   static Color getStatusColor(String status) {
     switch (status.toLowerCase()) {
@@ -229,7 +224,7 @@ class AppTheme {
         return textSecondary;
     }
   }
-  
+
   static Color getPriorityColor(String priority) {
     switch (priority.toLowerCase()) {
       case 'urgent':

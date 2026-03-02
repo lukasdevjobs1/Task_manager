@@ -1,6 +1,9 @@
+import 'dart:typed_data';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/user.dart';
+import '../models/user.dart' as app_user;
 import '../models/task_assignment.dart';
+import '../models/task_material.dart';
 import '../models/notification.dart';
 import '../models/chat_message.dart';
 
@@ -8,8 +11,10 @@ class SupabaseService {
   static final SupabaseClient _client = Supabase.instance.client;
   
   // Autenticação
-  static Future<User?> authenticateUser(String username, String password) async {
+  static Future<app_user.User?> authenticateUser(String username, String password) async {
     try {
+      print('SupabaseService: Buscando usuário $username');
+      
       // Busca usuário ativo com empresa ativa
       final response = await _client
           .from('users')
@@ -26,16 +31,25 @@ class SupabaseService {
           .eq('companies.active', true)
           .maybeSingle();
 
-      if (response == null) return null;
+      print('SupabaseService: Resposta recebida: ${response != null}');
+      
+      if (response == null) {
+        print('SupabaseService: Usuário não encontrado');
+        return null;
+      }
 
       // TODO: Validar senha (bcrypt)
       // Por enquanto, senha simplificada para teste
+      print('SupabaseService: Usuário encontrado, criando objeto User');
       
       final userData = Map<String, dynamic>.from(response);
       userData['company_name'] = userData['companies']['name'];
       userData['company_id'] = userData['companies']['id'];
       
-      return User.fromJson(userData);
+      final user = app_user.User.fromJson(userData);
+      print('SupabaseService: Login bem-sucedido para ${user.username}');
+      
+      return user;
     } catch (e) {
       print('Erro na autenticação: $e');
       return null;
@@ -67,14 +81,13 @@ class SupabaseService {
               full_name
             )
           ''')
-          .eq('assigned_to', userId)
-          .order('created_at', ascending: false);
+          .eq('assigned_to', userId);
       
       if (status != null) {
         query = query.eq('status', status);
       }
       
-      final response = await query;
+      final response = await query.order('created_at', ascending: false);
       
       return (response as List).map((task) {
         final taskData = Map<String, dynamic>.from(task);
@@ -99,7 +112,8 @@ class SupabaseService {
             assigned_by_user:users!assigned_by(
               full_name
             ),
-            photos:assignment_photos(*)
+            photos:assignment_photos(*),
+            materials:task_materials(*)
           ''')
           .eq('id', taskId)
           .maybeSingle();
@@ -220,26 +234,42 @@ class SupabaseService {
   ) async {
     try {
       final fileName = 'task_${taskId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      
+      final originalName = filePath.split('/').last;
+      final fileSize = fileBytes.length;
+
+      print('Upload: iniciando para task $taskId, arquivo $fileName, ${fileSize} bytes');
+
       await _client.storage
           .from('task-photos')
-          .uploadBinary(fileName, fileBytes);
-      
+          .uploadBinary(
+            fileName,
+            Uint8List.fromList(fileBytes),
+            fileOptions: const FileOptions(contentType: 'image/jpeg'),
+          );
+
+      print('Upload: storage OK');
+
       final photoUrl = _client.storage
           .from('task-photos')
           .getPublicUrl(fileName);
-      
-      // Registrar no banco
+
+      print('Upload: URL gerada $photoUrl');
+
       await _client.from('assignment_photos').insert({
         'assignment_id': taskId,
+        'file_path': fileName,
         'photo_url': photoUrl,
         'photo_path': fileName,
+        'original_name': originalName,
+        'file_size': fileSize,
         'uploaded_at': DateTime.now().toIso8601String(),
       });
-      
+
+      print('Upload: registro no banco OK');
+
       return photoUrl;
     } catch (e) {
-      print('Erro ao fazer upload de foto: $e');
+      print('ERRO upload foto: $e');
       return null;
     }
   }
@@ -285,6 +315,112 @@ class SupabaseService {
     }
   }
   
+  // ─── Materiais ────────────────────────────────────────────────────────────
+
+  /// Salva lista de materiais de uma tarefa (deleta os antigos e insere novos)
+  static Future<bool> saveTaskMaterials(
+    int assignmentId,
+    int userId,
+    List<TaskMaterial> materials,
+  ) async {
+    try {
+      // Remove materiais anteriores desta execução
+      await _client
+          .from('task_materials')
+          .delete()
+          .eq('assignment_id', assignmentId)
+          .eq('user_id', userId);
+
+      if (materials.isEmpty) return true;
+
+      final rows = materials
+          .map((m) => {
+                'assignment_id': assignmentId,
+                'user_id': userId,
+                'material_name': m.materialName,
+                'quantity': m.quantity,
+                'unit': m.unit,
+                'created_at': DateTime.now().toIso8601String(),
+              })
+          .toList();
+
+      await _client.from('task_materials').insert(rows);
+      return true;
+    } catch (e) {
+      print('Erro ao salvar materiais: $e');
+      return false;
+    }
+  }
+
+  /// Busca materiais de uma tarefa específica
+  static Future<List<TaskMaterial>> getTaskMaterials(int assignmentId) async {
+    try {
+      final response = await _client
+          .from('task_materials')
+          .select('*')
+          .eq('assignment_id', assignmentId)
+          .order('created_at', ascending: true);
+
+      return (response as List)
+          .map((m) => TaskMaterial.fromJson(m))
+          .toList();
+    } catch (e) {
+      print('Erro ao buscar materiais: $e');
+      return [];
+    }
+  }
+
+  /// Retorna resumo de materiais do usuário no período (em dias)
+  static Future<List<MaterialSummary>> getUserMaterialsSummary(
+    int userId, {
+    int periodDays = 30,
+  }) async {
+    try {
+      final since = DateTime.now()
+          .subtract(Duration(days: periodDays))
+          .toIso8601String();
+
+      final response = await _client
+          .from('task_materials')
+          .select('material_name, unit, quantity')
+          .eq('user_id', userId)
+          .gte('created_at', since);
+
+      // Agrupa client-side
+      final Map<String, Map<String, dynamic>> grouped = {};
+      for (final row in response as List) {
+        final name = row['material_name'] as String;
+        final qty = (row['quantity'] as num).toDouble();
+        final unit = row['unit'] as String? ?? 'un';
+        if (grouped.containsKey(name)) {
+          grouped[name]!['quantity'] =
+              (grouped[name]!['quantity'] as double) + qty;
+          grouped[name]!['count'] =
+              (grouped[name]!['count'] as int) + 1;
+        } else {
+          grouped[name] = {
+            'quantity': qty,
+            'unit': unit,
+            'count': 1,
+          };
+        }
+      }
+
+      return grouped.entries
+          .map((e) => MaterialSummary(
+                materialName: e.key,
+                unit: e.value['unit'] as String,
+                totalQuantity: e.value['quantity'] as double,
+                timesUsed: e.value['count'] as int,
+              ))
+          .toList()
+        ..sort((a, b) => b.totalQuantity.compareTo(a.totalQuantity));
+    } catch (e) {
+      print('Erro ao buscar resumo de materiais: $e');
+      return [];
+    }
+  }
+
   // Subscription para real-time
   static RealtimeChannel subscribeToTaskUpdates(
     int userId,
@@ -302,8 +438,9 @@ class SupabaseService {
             value: userId,
           ),
           callback: (payload) {
-            if (payload.newRecord != null) {
-              onUpdate(TaskAssignment.fromJson(payload.newRecord!));
+            final newRecord = payload.newRecord;
+            if (newRecord != null) {
+              onUpdate(TaskAssignment.fromJson(newRecord));
             }
           },
         )
