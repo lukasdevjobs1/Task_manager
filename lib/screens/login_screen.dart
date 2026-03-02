@@ -62,11 +62,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   // Logo/Ícone
                   Image.asset(
-                    'assets/icons/logo.png',
+                    'assets/icons/tasklogo.png',
                     height: 100,
                     fit: BoxFit.contain,
                     errorBuilder: (_, __, ___) => const Icon(
-                      Icons.assignment_turned_in_rounded,
+                      Icons.wifi_rounded,
                       size: 80,
                       color: AppTheme.primaryColor,
                     ),

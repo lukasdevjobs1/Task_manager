@@ -5,8 +5,20 @@ ISP Manager — Sistema de Gerenciamento de Tarefas para Provedores de Internet
 import streamlit as st
 import sys
 import os
+import base64
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+
+def _logo_base64() -> str:
+    """Retorna a tasklogo como string base64 para embed no HTML."""
+    try:
+        logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                 "assets", "icons", "tasklogo.png")
+        with open(logo_path, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+    except Exception:
+        return ""
 
 from auth.authentication import (
     is_logged_in,
@@ -346,19 +358,23 @@ def configure_page():
 
 def render_topbar(user: dict, unread: int):
     """Header visual (HTML — apenas estético)."""
-    role_badge = ""
-    if is_super_admin():
-        role_badge = '<span class="isp-company-badge">Super Admin</span>'
-    elif is_admin():
-        role_badge = f'<span class="isp-company-badge">{user["company_name"]}</span>'
-    else:
-        role_badge = f'<span class="isp-company-badge">{user["company_name"]}</span>'
+    logo_b64 = _logo_base64()
+    logo_html = (
+        f'<img src="data:image/png;base64,{logo_b64}" '
+        f'style="height:32px;width:32px;object-fit:contain;filter:brightness(0) invert(1);">'
+        if logo_b64 else '<span style="font-size:22px;">📡</span>'
+    )
+
+    company = "Super Admin" if is_super_admin() else user["company_name"]
+    role_badge = (
+        f'<span class="isp-company-badge">{company}</span>'
+    )
 
     st.markdown(
         f"""
         <div class="isp-header">
             <div class="isp-brand">
-                <span class="isp-brand-icon">📡</span>
+                {logo_html}
                 <span class="isp-brand-name">ISP Manager</span>
                 <span class="isp-brand-sub">Sistema de Tarefas</span>
             </div>
