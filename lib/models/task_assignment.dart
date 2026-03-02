@@ -22,11 +22,22 @@ class TaskAssignment {
   // Dados adicionais do gerente que atribuiu
   final String? assignedByName;
 
+  // Empresa responsável pela tarefa
+  final String? empresaNome;
+
   // Fotos associadas
   final List<AssignmentPhoto>? photos;
 
   // Materiais utilizados
   final List<TaskMaterial>? materials;
+
+  // Campos técnicos ISP
+  final int? aberturaFechamentoCxEmenda;
+  final int? aberturaFechamentoCto;
+  final int? aberturaFechamentoRozeta;
+  final int? quantidadeCto;
+  final int? quantidadeCxEmenda;
+  final double? fibraLancada;
 
   TaskAssignment({
     required this.id,
@@ -47,8 +58,15 @@ class TaskAssignment {
     this.startedAt,
     this.completedAt,
     this.assignedByName,
+    this.empresaNome,
     this.photos,
     this.materials,
+    this.aberturaFechamentoCxEmenda,
+    this.aberturaFechamentoCto,
+    this.aberturaFechamentoRozeta,
+    this.quantidadeCto,
+    this.quantidadeCxEmenda,
+    this.fibraLancada,
   });
 
   factory TaskAssignment.fromJson(Map<String, dynamic> json) {
@@ -83,6 +101,15 @@ class TaskAssignment {
           ? DateTime.parse(json['completed_at'] as String)
           : null,
       assignedByName: json['assigned_by_name'] as String?,
+      empresaNome: json['empresa_nome'] as String?,
+      aberturaFechamentoCxEmenda: json['abertura_fechamento_cx_emenda'] as int?,
+      aberturaFechamentoCto: json['abertura_fechamento_cto'] as int?,
+      aberturaFechamentoRozeta: json['abertura_fechamento_rozeta'] as int?,
+      quantidadeCto: json['quantidade_cto'] as int?,
+      quantidadeCxEmenda: json['quantidade_cx_emenda'] as int?,
+      fibraLancada: json['fibra_lancada'] != null
+          ? (json['fibra_lancada'] as num).toDouble()
+          : null,
       photos: (json['photos'] is List)
           ? (json['photos'] as List)
               .map((p) => AssignmentPhoto.fromJson(
@@ -118,6 +145,13 @@ class TaskAssignment {
       'started_at': startedAt?.toIso8601String(),
       'completed_at': completedAt?.toIso8601String(),
       'assigned_by_name': assignedByName,
+      'empresa_nome': empresaNome,
+      'abertura_fechamento_cx_emenda': aberturaFechamentoCxEmenda,
+      'abertura_fechamento_cto': aberturaFechamentoCto,
+      'abertura_fechamento_rozeta': aberturaFechamentoRozeta,
+      'quantidade_cto': quantidadeCto,
+      'quantidade_cx_emenda': quantidadeCxEmenda,
+      'fibra_lancada': fibraLancada,
       'photos': photos?.map((p) => p.toJson()).toList(),
       'materials': materials?.map((m) => m.toJson()).toList(),
     };

@@ -7,7 +7,6 @@ import pandas as pd
 from datetime import datetime, timedelta, date
 import sys
 import os
-import re
 import plotly.graph_objects as go
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -15,21 +14,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from auth.authentication import require_login, get_current_user, is_admin
 from database.supabase_only_connection import db
 
-
-def extract_materials_metrics(materials_text):
-    """Extrai métricas de materiais do texto."""
-    if not materials_text:
-        return {'ctos': 0, 'ceos': 0, 'cabo_metros': 0}
-
-    text = materials_text.lower()
-    cto_match = re.findall(r'(\d+)\s*cto', text)
-    ctos = sum(int(x) for x in cto_match) if cto_match else 0
-    ceo_match = re.findall(r'(\d+)\s*ceo', text)
-    ceos = sum(int(x) for x in ceo_match) if ceo_match else 0
-    cabo_match = re.findall(r'(\d+)\s*m', text)
-    cabo_metros = sum(int(x) for x in cabo_match) if cabo_match else 0
-
-    return {'ctos': ctos, 'ceos': ceos, 'cabo_metros': cabo_metros}
 
 
 def parse_date(date_str) -> datetime:
@@ -212,6 +196,17 @@ def render_dashboard_page():
         with kpi4:
             st.metric("Pendentes", pendentes)
 
+        kpi_isp1, kpi_isp2, kpi_isp3 = st.columns(3)
+        with kpi_isp1:
+            st.metric("Total CTOs", sum(a.get('quantidade_cto') or 0 for a in all_assignments))
+        with kpi_isp2:
+            st.metric("Total Cx Emenda", sum(a.get('quantidade_cx_emenda') or 0 for a in all_assignments))
+        with kpi_isp3:
+            st.metric(
+                "Fibra Lançada (m)",
+                f"{sum(float(a.get('fibra_lancada') or 0) for a in all_assignments):.0f}"
+            )
+
         # ── Tabs ───────────────────────────────────────────────────────────────
         tab_geral, tab_empresa, tab_desempenho = st.tabs(
             ["📊 Geral", "🏢 Por Empresa", "👥 Desempenho"]
@@ -356,6 +351,21 @@ def render_dashboard_page():
                                     pd.DataFrame(tarefas_empresa)[cols_exist],
                                     use_container_width=True, hide_index=True
                                 )
+                # Métricas ISP por empresa
+                emp_metrics: dict = {}
+                for a in all_assignments:
+                    emp = a.get('empresa_nome') or 'Não definida'
+                    if emp not in emp_metrics:
+                        emp_metrics[emp] = {'CTOs': 0, 'Cx Emenda': 0, 'Fibra (m)': 0.0, 'Tarefas': 0}
+                    emp_metrics[emp]['CTOs'] += a.get('quantidade_cto') or 0
+                    emp_metrics[emp]['Cx Emenda'] += a.get('quantidade_cx_emenda') or 0
+                    emp_metrics[emp]['Fibra (m)'] += float(a.get('fibra_lancada') or 0)
+                    emp_metrics[emp]['Tarefas'] += 1
+
+                st.subheader("Métricas ISP por Empresa")
+                df_emp = pd.DataFrame([{'Empresa': k, **v} for k, v in emp_metrics.items()])
+                df_emp['Fibra (m)'] = df_emp['Fibra (m)'].round(2)
+                st.dataframe(df_emp, use_container_width=True, hide_index=True)
             else:
                 st.info("Nenhuma tarefa encontrada para o filtro selecionado.")
 
@@ -368,13 +378,9 @@ def render_dashboard_page():
                 u_tasks = [a for a in all_assignments if a.get('assigned_to') == u['id']]
                 completed_count = len([a for a in u_tasks if a.get('status') == 'concluida'])
 
-                ctos, ceos, cabo = 0, 0, 0
-                for a in u_tasks:
-                    if a.get('status') == 'concluida' and a.get('materials'):
-                        m = extract_materials_metrics(a['materials'])
-                        ctos += m['ctos']
-                        ceos += m['ceos']
-                        cabo += m['cabo_metros']
+                user_ctos = sum(a.get('quantidade_cto') or 0 for a in u_tasks)
+                user_cx_emenda = sum(a.get('quantidade_cx_emenda') or 0 for a in u_tasks)
+                user_fibra = sum(float(a.get('fibra_lancada') or 0) for a in u_tasks)
 
                 user_details.append({
                     'Nome': u['full_name'],
@@ -383,9 +389,9 @@ def render_dashboard_page():
                     'Concluídas': completed_count,
                     'Em Andamento': len([a for a in u_tasks if a.get('status') == 'em_andamento']),
                     'Pendentes': len([a for a in u_tasks if a.get('status') == 'pendente']),
-                    'CTOs': ctos,
-                    'CEOs': ceos,
-                    'Cabo (m)': cabo,
+                    'Qtd CTO': user_ctos,
+                    'Cx Emenda': user_cx_emenda,
+                    'Fibra (m)': round(user_fibra, 2),
                 })
 
             if user_details:

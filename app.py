@@ -1,13 +1,11 @@
 """
-Sistema de Gerenciamento de Tarefas - Provedor de Internet
-Aplicação principal Streamlit com navegação entre páginas.
+ISP Manager — Sistema de Gerenciamento de Tarefas para Provedores de Internet
 """
 
 import streamlit as st
 import sys
 import os
 
-# Adiciona o diretório raiz ao path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from auth.authentication import (
@@ -18,7 +16,6 @@ from auth.authentication import (
     get_current_user,
 )
 from views.login import render_login_page
-from views.register_task import render_register_task_page
 from views.dashboard_supabase import render_dashboard_page
 from views.admin import render_admin_page
 from views.task_details import render_task_details_page
@@ -28,143 +25,310 @@ from views.assignment_details import render_assignment_details_page
 from views.completed_tasks_manager import show_completed_tasks_manager
 
 
-def configure_page():
-    """Configurações da página Streamlit."""
-    st.set_page_config(
-        page_title="Sistema de Tarefas ISP",
-        page_icon="📋",
-        layout="wide",
-        initial_sidebar_state="auto",  # Colapsa automaticamente em mobile
-    )
+# ── Páginas que não têm item próprio na nav (acessadas via link) ───────────
+SPECIAL_PAGES = {"task_details", "assignment_details", "manager_dashboard"}
 
-    # CSS customizado com otimizações para mobile
+# Mapa: nome interno → label + ícone na nav
+NAV_ITEMS_USER = [
+    ("dashboard",       "Dashboard",         "📊"),
+    ("notifications",   "Notificações",      "🔔"),
+]
+NAV_ITEMS_ADMIN = [
+    ("task_management", "Gerenciar Tarefas", "📋"),
+    ("completed_tasks", "Concluídas",        "✅"),
+    ("admin",           "Administração",     "⚙️"),
+]
+
+
+def configure_page():
+    st.set_page_config(
+        page_title="ISP Manager",
+        page_icon="📡",
+        layout="wide",
+        initial_sidebar_state="collapsed",
+    )
     st.markdown(
         """
         <style>
-        /* Estilos gerais */
-        .main {
-            padding: 1rem;
+        /* ── Fontes ────────────────────────────────────────────────────── */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        html, body, [class*="css"], .stMarkdown, .stText, p, span, label {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
         }
-        .stButton > button {
-            width: 100%;
+
+        /* ── Ocultar sidebar e controles padrão ────────────────────────── */
+        section[data-testid="stSidebar"]  { display: none !important; }
+        [data-testid="collapsedControl"]  { display: none !important; }
+        #MainMenu                         { visibility: hidden; }
+        footer                            { visibility: hidden; }
+        header[data-testid="stHeader"]    { display: none !important; }
+
+        /* ── Layout geral ──────────────────────────────────────────────── */
+        .stApp {
+            background: #f1f5f9;
+        }
+        .main .block-container {
+            padding: 0 !important;
+            max-width: 100% !important;
+        }
+
+        /* ── Header principal ──────────────────────────────────────────── */
+        .isp-header {
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+            padding: 0 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 60px;
+            position: sticky;
+            top: 0;
+            z-index: 999;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+        }
+        .isp-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+        }
+        .isp-brand-icon {
+            font-size: 22px;
+        }
+        .isp-brand-name {
+            font-size: 17px;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: -0.3px;
+        }
+        .isp-brand-sub {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-left: 4px;
+        }
+        .isp-user-area {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .isp-company-badge {
+            background: rgba(59,130,246,0.2);
+            border: 1px solid rgba(59,130,246,0.4);
+            color: #93c5fd;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 12px;
+            border-radius: 20px;
+            letter-spacing: 0.3px;
+        }
+        .isp-user-name {
+            font-size: 13px;
+            font-weight: 500;
+            color: #cbd5e1;
+        }
+        .isp-user-role {
+            font-size: 11px;
+            color: #64748b;
+        }
+
+        /* ── Barra de navegação ────────────────────────────────────────── */
+        .isp-navbar {
+            background: #ffffff;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 0 2rem;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            height: 50px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .isp-nav-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 6px 16px;
+            border-radius: 8px;
+            font-size: 13.5px;
+            font-weight: 500;
+            color: #475569;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            text-decoration: none;
+            transition: all 0.15s;
+            white-space: nowrap;
+        }
+        .isp-nav-item:hover {
+            background: #f1f5f9;
+            color: #1e293b;
+        }
+        .isp-nav-item.active {
+            background: #eff6ff;
+            color: #2563eb;
+            font-weight: 600;
+        }
+        .isp-nav-badge {
+            background: #ef4444;
+            color: white;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 1px 6px;
+            border-radius: 10px;
+            min-width: 18px;
+            text-align: center;
+        }
+        .isp-nav-divider {
+            flex: 1;
+        }
+        .isp-logout-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #64748b;
+            cursor: pointer;
+            border: 1px solid #e2e8f0;
+            background: transparent;
+            transition: all 0.15s;
+        }
+        .isp-logout-btn:hover {
+            background: #fef2f2;
+            color: #dc2626;
+            border-color: #fca5a5;
+        }
+
+        /* ── Conteúdo ──────────────────────────────────────────────────── */
+        .isp-content {
+            padding: 1.5rem 2rem;
+        }
+
+        /* ── Cards / KPIs ──────────────────────────────────────────────── */
+        div[data-testid="metric-container"] {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 1rem 1.25rem !important;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
         }
         div[data-testid="stMetricValue"] {
-            font-size: 1.5rem;
+            font-size: 1.7rem !important;
+            font-weight: 700;
+            color: #0f172a;
         }
-        section[data-testid="stSidebar"] {
-            background-color: #f8f9fa;
+        div[data-testid="stMetricLabel"] {
+            font-size: 0.78rem !important;
+            font-weight: 500;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
-        /* Otimizações para Mobile */
+        /* ── Títulos ────────────────────────────────────────────────────── */
+        h1 { font-size: 1.5rem !important; font-weight: 700; color: #0f172a; }
+        h2 { font-size: 1.2rem !important; font-weight: 600; color: #1e293b; }
+        h3 { font-size: 1rem  !important; font-weight: 600; color: #334155; }
+
+        /* ── Tabs do Streamlit ──────────────────────────────────────────── */
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 6px;
+            background: transparent;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        .stTabs [data-baseweb="tab"] {
+            border-radius: 8px 8px 0 0;
+            padding: 8px 18px;
+            font-size: 13.5px;
+            font-weight: 500;
+            color: #64748b;
+            background: transparent;
+        }
+        .stTabs [aria-selected="true"] {
+            background: #eff6ff !important;
+            color: #2563eb !important;
+            font-weight: 600;
+        }
+
+        /* ── Dataframes ────────────────────────────────────────────────── */
+        .stDataFrame {
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+        }
+
+        /* ── Botões ─────────────────────────────────────────────────────── */
+        .stButton > button {
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 13.5px;
+            transition: all 0.15s;
+        }
+        .stButton > button[kind="primary"] {
+            background: #2563eb;
+            border-color: #2563eb;
+        }
+        .stButton > button[kind="primary"]:hover {
+            background: #1d4ed8;
+            border-color: #1d4ed8;
+        }
+
+        /* ── Inputs ────────────────────────────────────────────────────── */
+        .stTextInput > div > div > input,
+        .stSelectbox > div > div,
+        .stTextArea > div > div > textarea {
+            border-radius: 8px;
+            border-color: #e2e8f0;
+            font-size: 14px;
+        }
+
+        /* ── Divider ────────────────────────────────────────────────────── */
+        hr {
+            border-color: #e2e8f0;
+            margin: 1rem 0;
+        }
+
+        /* ── Expanders ──────────────────────────────────────────────────── */
+        .streamlit-expanderHeader {
+            background: #f8fafc;
+            border-radius: 8px;
+            font-weight: 500;
+            color: #334155;
+        }
+
+        /* ── Alertas / Info boxes ───────────────────────────────────────── */
+        .stAlert {
+            border-radius: 10px;
+        }
+
+        /* ── Separador de página ────────────────────────────────────────── */
+        .isp-page-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.25rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .isp-page-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        /* ── Responsivo ─────────────────────────────────────────────────── */
         @media (max-width: 768px) {
-            /* Reduz padding geral */
-            .main {
-                padding: 0.5rem;
-            }
-
-            /* Ajusta métricas para caber em tela menor */
-            div[data-testid="stMetricValue"] {
-                font-size: 1.2rem;
-            }
-            div[data-testid="stMetricLabel"] {
-                font-size: 0.8rem;
-            }
-
-            /* Melhora visualização de tabelas */
-            .stDataFrame {
-                font-size: 0.75rem;
-            }
-
-            /* Ajusta títulos */
-            h1 {
-                font-size: 1.5rem !important;
-            }
-            h2 {
-                font-size: 1.25rem !important;
-            }
-            h3 {
-                font-size: 1.1rem !important;
-            }
-
-            /* Botões mais acessíveis em touch */
-            .stButton > button {
-                min-height: 48px;
-                font-size: 1rem;
-            }
-
-            /* Inputs mais acessíveis */
-            .stTextInput > div > div > input,
-            .stSelectbox > div > div > div,
-            .stNumberInput > div > div > input {
-                min-height: 44px;
-                font-size: 16px !important; /* Previne zoom no iOS */
-            }
-
-            /* Checkboxes maiores */
-            .stCheckbox {
-                padding: 8px 0;
-            }
-
-            /* Sidebar mais compacta */
-            section[data-testid="stSidebar"] > div {
-                padding: 1rem 0.5rem;
-            }
-
-            /* Imagens responsivas */
-            .stImage {
-                max-width: 100%;
-            }
-
-            /* Cards de métricas empilhados */
-            div[data-testid="column"] {
-                min-width: 45% !important;
-            }
-
-            /* Expanders mais acessíveis */
-            .streamlit-expanderHeader {
-                font-size: 1rem;
-                padding: 0.75rem;
-            }
-
-            /* File uploader otimizado */
-            .stFileUploader > div {
-                padding: 1rem;
-            }
+            .isp-header        { padding: 0 1rem; }
+            .isp-navbar        { padding: 0 0.5rem; gap: 2px; overflow-x: auto; }
+            .isp-nav-item      { padding: 6px 10px; font-size: 12px; }
+            .isp-content       { padding: 1rem; }
+            .isp-brand-sub     { display: none; }
+            .isp-company-badge { display: none; }
+            div[data-testid="stMetricValue"] { font-size: 1.3rem !important; }
         }
-
-        /* Telas muito pequenas (smartphones) */
         @media (max-width: 480px) {
-            .main {
-                padding: 0.25rem;
-            }
-
-            h1 {
-                font-size: 1.3rem !important;
-            }
-
-            /* Métricas em coluna única */
-            div[data-testid="column"] {
-                min-width: 100% !important;
-            }
-
-            /* Tabelas com scroll horizontal */
-            .stDataFrame > div {
-                overflow-x: auto;
-            }
-        }
-
-        /* Melhoria de touch targets */
-        @media (hover: none) and (pointer: coarse) {
-            .stButton > button,
-            .stDownloadButton > button {
-                min-height: 48px;
-                padding: 12px 24px;
-            }
-
-            .stRadio > div > label {
-                padding: 12px 8px;
-                min-height: 44px;
-            }
+            .isp-nav-item span.nav-label { display: none; }
         }
         </style>
         """,
@@ -172,139 +336,119 @@ def configure_page():
     )
 
 
-def render_sidebar():
-    """Renderiza a barra lateral com navegação."""
-    user = get_current_user()
-    user_is_super = is_super_admin()
+def render_topbar(user: dict, unread: int):
+    """Header visual (HTML — apenas estético)."""
+    role_badge = ""
+    if is_super_admin():
+        role_badge = '<span class="isp-company-badge">Super Admin</span>'
+    elif is_admin():
+        role_badge = f'<span class="isp-company-badge">{user["company_name"]}</span>'
+    else:
+        role_badge = f'<span class="isp-company-badge">{user["company_name"]}</span>'
 
-    with st.sidebar:
-        st.title("📋 Sistema de Tarefas")
-        st.markdown("---")
+    st.markdown(
+        f"""
+        <div class="isp-header">
+            <div class="isp-brand">
+                <span class="isp-brand-icon">📡</span>
+                <span class="isp-brand-name">ISP Manager</span>
+                <span class="isp-brand-sub">Sistema de Tarefas</span>
+            </div>
+            <div class="isp-user-area">
+                {role_badge}
+                <div>
+                    <div class="isp-user-name">{user['full_name']}</div>
+                    <div class="isp-user-role">Equipe {user['team'].capitalize()}</div>
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-        # Informações do usuário
-        if user_is_super:
-            st.markdown("🔑 **Super Administrador**")
-        else:
-            st.markdown(f"🏢 **{user['company_name']}**")
 
-        st.markdown(f"👤 {user['full_name']}")
-        st.markdown(f"👥 Equipe: {user['team'].capitalize()}")
+def render_navbar(user: dict, unread: int):
+    """Barra de navegação horizontal com botões Streamlit."""
+    current_page = st.session_state.get("current_page", "dashboard")
+    # Páginas especiais ficam com o item pai ativo
+    if current_page in SPECIAL_PAGES:
+        current_page = "dashboard"
 
-        if is_admin() and not user_is_super:
-            st.markdown("⭐ Gerente")
+    nav_items = list(NAV_ITEMS_USER)
+    if is_admin():
+        nav_items += NAV_ITEMS_ADMIN
 
-        st.markdown("---")
+    # Calcula colunas: itens de nav + espaçador + logout
+    n = len(nav_items)
+    col_sizes = [1] * n + [4] + [1]  # espaçador no meio, logout no final
+    cols = st.columns(col_sizes)
 
-        # Badge de notificações
-        unread = get_unread_count(user["id"])
-        notif_label = f"🔔 Notificações ({unread})" if unread > 0 else "🔔 Notificações"
-
-        # Menu de navegação usando radio
-        menu_options = ["📊 Dashboard", "📝 Nova Tarefa", notif_label]
-
-        if is_admin():
-            menu_options.append("📋 Gerenciar Tarefas")
-            menu_options.append("✅ Tarefas Concluídas")
-            menu_options.append("⚙️ Administração")
-
-        # Mapeia opções para páginas
-        page_map = {
-            "📊 Dashboard": "dashboard",
-            "📝 Nova Tarefa": "register",
-            notif_label: "notifications",
-            "📋 Gerenciar Tarefas": "task_management",
-            "✅ Tarefas Concluídas": "completed_tasks",
-            "⚙️ Administração": "admin",
-        }
-
-        # Obtém página atual
-        current_page = st.session_state.get("current_page", "dashboard")
-
-        # Páginas especiais que não estão no menu (como task_details)
-        special_pages = ["task_details", "assignment_details", "manager_dashboard"]
-        is_special_page = current_page in special_pages
-
-        # Encontra índice da página atual (ou usa dashboard se for página especial)
-        current_index = 0
-        display_page = "dashboard" if is_special_page else current_page
-        for i, option in enumerate(menu_options):
-            if page_map.get(option) == display_page:
-                current_index = i
-                break
-
-        # Radio menu
-        selected = st.radio(
-            "Navegação",
-            menu_options,
-            index=current_index,
-            label_visibility="collapsed",
-        )
-
-        # Atualiza página se mudou (mas só se o usuário realmente clicou em uma opção diferente)
-        new_page = page_map.get(selected, "dashboard")
-        # Se está em página especial, só muda se o usuário escolheu algo diferente do dashboard
-        if is_special_page:
-            if new_page != "dashboard":
-                st.session_state["current_page"] = new_page
+    for i, (page, label, icon) in enumerate(nav_items):
+        notif_suffix = f" ({unread})" if page == "notifications" and unread > 0 else ""
+        btn_label = f"{icon} {label}{notif_suffix}"
+        is_active = st.session_state.get("current_page", "dashboard") == page
+        with cols[i]:
+            if st.button(
+                btn_label,
+                key=f"nav_{page}",
+                use_container_width=True,
+                type="primary" if is_active else "secondary",
+            ):
+                st.session_state["current_page"] = page
                 st.rerun()
-        elif new_page != current_page:
-            st.session_state["current_page"] = new_page
-            st.rerun()
 
-        st.markdown("---")
-
-        # Botão de logout
-        if st.button("🚪 Sair", use_container_width=True, type="secondary"):
+    # Logout (última coluna)
+    with cols[-1]:
+        if st.button("Sair", key="nav_logout", use_container_width=True):
             logout_user()
             st.rerun()
 
-        st.markdown("---")
-        st.caption("Sistema de Tarefas ISP v1.1")
+    st.markdown("<hr style='margin:0;border-color:#e2e8f0'>", unsafe_allow_html=True)
 
 
 def main():
-    """Função principal da aplicação."""
     configure_page()
 
-    # Verifica se está logado
     if not is_logged_in():
         render_login_page()
         return
 
-    # Inicializa página atual se não existir
     if "current_page" not in st.session_state:
         st.session_state["current_page"] = "dashboard"
 
-    # Renderiza sidebar
-    render_sidebar()
+    user = get_current_user()
+    unread = get_unread_count(user["id"])
 
-    # Renderiza página atual
+    # ── Header + Navbar ────────────────────────────────────────────────────
+    render_topbar(user, unread)
+    render_navbar(user, unread)
+
+    # ── Conteúdo com padding ───────────────────────────────────────────────
+    st.markdown('<div class="isp-content">', unsafe_allow_html=True)
+
     current_page = st.session_state.get("current_page", "dashboard")
 
-    # Debug: mostra página atual (remover depois)
-    st.sidebar.caption(f"Página: {current_page}")
-
-    if current_page == "register":
-        render_register_task_page()
-    elif current_page == "dashboard":
+    if current_page == "dashboard":
         render_dashboard_page()
-    elif current_page == "manager_dashboard" and is_admin():
-        from views.manager_dashboard import render_manager_dashboard
-        render_manager_dashboard()
-    elif current_page == "task_details":
-        render_task_details_page()
     elif current_page == "notifications":
         render_notifications_page()
     elif current_page == "task_management" and is_admin():
         render_task_management_page()
     elif current_page == "completed_tasks" and is_admin():
         show_completed_tasks_manager()
-    elif current_page == "assignment_details":
-        render_assignment_details_page()
     elif current_page == "admin" and is_admin():
         render_admin_page()
+    elif current_page == "task_details":
+        render_task_details_page()
+    elif current_page == "assignment_details":
+        render_assignment_details_page()
+    elif current_page == "manager_dashboard" and is_admin():
+        from views.manager_dashboard import render_manager_dashboard
+        render_manager_dashboard()
     else:
         render_dashboard_page()
+
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 if __name__ == "__main__":

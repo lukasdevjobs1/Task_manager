@@ -4,8 +4,6 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import '../providers/task_provider.dart';
-import '../providers/auth_provider.dart';
-import '../models/task_material.dart';
 import '../services/supabase_service.dart';
 import '../config/theme.dart';
 
@@ -20,9 +18,14 @@ class TaskExecuteScreen extends StatefulWidget {
 
 class _TaskExecuteScreenState extends State<TaskExecuteScreen> {
   final _observationsController = TextEditingController();
+  final _abertCxEmendaController = TextEditingController(text: '0');
+  final _abertCtoController = TextEditingController(text: '0');
+  final _abertRozetaController = TextEditingController(text: '0');
+  final _qtdCtoController = TextEditingController(text: '0');
+  final _qtdCxEmendaController = TextEditingController(text: '0');
+  final _fibraLancadaController = TextEditingController(text: '0');
   final ImagePicker _picker = ImagePicker();
   final List<XFile> _photos = [];
-  final List<TaskMaterial> _materials = [];
   String _selectedStatus = 'em_andamento';
   bool _isUploading = false;
   String _uploadStatus = '';
@@ -30,6 +33,12 @@ class _TaskExecuteScreenState extends State<TaskExecuteScreen> {
   @override
   void dispose() {
     _observationsController.dispose();
+    _abertCxEmendaController.dispose();
+    _abertCtoController.dispose();
+    _abertRozetaController.dispose();
+    _qtdCtoController.dispose();
+    _qtdCxEmendaController.dispose();
+    _fibraLancadaController.dispose();
     super.dispose();
   }
 
@@ -96,131 +105,17 @@ class _TaskExecuteScreenState extends State<TaskExecuteScreen> {
     }
   }
 
-  // ─── Materiais ────────────────────────────────────────────────────────────
+  // ─── Helper campo numérico ────────────────────────────────────────────────
 
-  void _showAddMaterialSheet() {
-    final nameController = TextEditingController();
-    final quantityController = TextEditingController(text: '1');
-    final unitController = TextEditingController(text: 'un');
-    final formKey = GlobalKey<FormState>();
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
-          top: 24,
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-        ),
-        child: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Adicionar Material',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 20),
-
-              // Nome do material
-              TextFormField(
-                controller: nameController,
-                autofocus: true,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(
-                  labelText: 'Nome do material *',
-                  hintText: 'Ex: Cabo UTP cat6, Conector RJ45...',
-                  prefixIcon: Icon(Icons.build_outlined),
-                ),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Informe o material' : null,
-              ),
-              const SizedBox(height: 16),
-
-              // Quantidade e unidade na mesma linha
-              Row(
-                children: [
-                  // Quantidade
-                  SizedBox(
-                    width: 110,
-                    child: TextFormField(
-                      controller: quantityController,
-                      keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true),
-                      decoration: const InputDecoration(
-                        labelText: 'Qtd *',
-                      ),
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) return 'Informe';
-                        final n = double.tryParse(v.replaceAll(',', '.'));
-                        if (n == null || n <= 0) return 'Inválido';
-                        return null;
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-
-                  // Unidade (texto livre)
-                  Expanded(
-                    child: TextFormField(
-                      controller: unitController,
-                      textCapitalization: TextCapitalization.none,
-                      decoration: const InputDecoration(
-                        labelText: 'Unidade',
-                        hintText: 'un, m, m², kg...',
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              // Botões
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      child: const Text('Cancelar'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        if (!formKey.currentState!.validate()) return;
-                        final qty = double.parse(
-                            quantityController.text.replaceAll(',', '.'));
-                        final unit = unitController.text.trim().isEmpty
-                            ? 'un'
-                            : unitController.text.trim();
-                        setState(() {
-                          _materials.add(TaskMaterial(
-                            assignmentId: widget.taskId,
-                            userId: 0, // preenchido no submit
-                            materialName: nameController.text.trim(),
-                            quantity: qty,
-                            unit: unit,
-                            createdAt: DateTime.now(),
-                          ));
-                        });
-                        Navigator.pop(ctx);
-                      },
-                      child: const Text('Adicionar'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
+  Widget _buildNumericField(String label, TextEditingController controller) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      decoration: InputDecoration(
+        labelText: label,
+        isDense: true,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       ),
     );
   }
@@ -235,27 +130,23 @@ class _TaskExecuteScreenState extends State<TaskExecuteScreen> {
 
     if (!mounted) return;
 
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final taskProvider = Provider.of<TaskProvider>(context, listen: false);
-    final userId = authProvider.user?.id ?? 0;
 
-    // Salvar materiais (com userId correto)
-    if (_materials.isNotEmpty) {
-      setState(() => _uploadStatus = 'Salvando materiais...');
-      final materialsWithUser = _materials
-          .map((m) => TaskMaterial(
-                assignmentId: m.assignmentId,
-                userId: userId,
-                materialName: m.materialName,
-                quantity: m.quantity,
-                unit: m.unit,
-                createdAt: m.createdAt,
-              ))
-          .toList();
-
-      await SupabaseService.saveTaskMaterials(
-          widget.taskId, userId, materialsWithUser);
-    }
+    // Salvar dados técnicos ISP
+    setState(() => _uploadStatus = 'Salvando dados técnicos...');
+    await SupabaseService.updateTaskTechnicalData(
+      widget.taskId,
+      aberturaFechamentoCxEmenda:
+          int.tryParse(_abertCxEmendaController.text) ?? 0,
+      aberturaFechamentoCto: int.tryParse(_abertCtoController.text) ?? 0,
+      aberturaFechamentoRozeta:
+          int.tryParse(_abertRozetaController.text) ?? 0,
+      quantidadeCto: int.tryParse(_qtdCtoController.text) ?? 0,
+      quantidadeCxEmenda: int.tryParse(_qtdCxEmendaController.text) ?? 0,
+      fibraLancada:
+          double.tryParse(_fibraLancadaController.text.replaceAll(',', '.')) ??
+              0,
+    );
 
     setState(() {
       _isUploading = false;
@@ -299,8 +190,7 @@ class _TaskExecuteScreenState extends State<TaskExecuteScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // ── Status ────────────────────────────────────────────────────
-            Text('Status',
-                style: Theme.of(context).textTheme.titleMedium),
+            Text('Status', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
               value: _selectedStatus,
@@ -317,8 +207,7 @@ class _TaskExecuteScreenState extends State<TaskExecuteScreen> {
                   child: Text('Concluída'),
                 ),
               ],
-              onChanged: (value) =>
-                  setState(() => _selectedStatus = value!),
+              onChanged: (value) => setState(() => _selectedStatus = value!),
             ),
             const SizedBox(height: 24),
 
@@ -387,75 +276,81 @@ class _TaskExecuteScreenState extends State<TaskExecuteScreen> {
 
             const SizedBox(height: 24),
 
-            // ── Materiais ─────────────────────────────────────────────────
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Materiais Utilizados',
-                    style: Theme.of(context).textTheme.titleMedium),
-                TextButton.icon(
-                  onPressed: _showAddMaterialSheet,
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Adicionar'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-
-            if (_materials.isEmpty)
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.shade200),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.build_outlined,
-                        size: 20, color: AppTheme.textDisabled),
-                    const SizedBox(width: 10),
-                    Text(
-                      'Nenhum material adicionado',
-                      style: TextStyle(color: AppTheme.textSecondary),
-                    ),
-                  ],
-                ),
-              )
-            else
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _materials.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
-                itemBuilder: (context, index) {
-                  final m = _materials[index];
-                  return ListTile(
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 0),
-                    leading: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color:
-                            AppTheme.primaryColor.withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.build_outlined,
-                          size: 16, color: AppTheme.primaryColor),
-                    ),
-                    title: Text(m.materialName,
-                        style: const TextStyle(fontWeight: FontWeight.w500)),
-                    subtitle: Text(m.displayQuantity,
-                        style: TextStyle(color: AppTheme.textSecondary)),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete_outline,
-                          color: AppTheme.errorColor),
-                      onPressed: () =>
-                          setState(() => _materials.removeAt(index)),
-                    ),
-                  );
-                },
+            // ── Dados Técnicos da OS ───────────────────────────────────────
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.3)),
               ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.cable_outlined,
+                          color: AppTheme.primaryColor, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Dados Técnicos da OS',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(color: AppTheme.primaryColor),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Table(
+                    columnWidths: const {
+                      0: FlexColumnWidth(),
+                      1: FlexColumnWidth(),
+                    },
+                    children: [
+                      TableRow(children: [
+                        Padding(
+                          padding: const EdgeInsets.only(right: 6, bottom: 12),
+                          child: _buildNumericField(
+                              'Abert./Fech. Cx Emenda',
+                              _abertCxEmendaController),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 6, bottom: 12),
+                          child: _buildNumericField(
+                              'Abert./Fech. CTO', _abertCtoController),
+                        ),
+                      ]),
+                      TableRow(children: [
+                        Padding(
+                          padding: const EdgeInsets.only(right: 6, bottom: 12),
+                          child: _buildNumericField(
+                              'Abert./Fech. Rozeta', _abertRozetaController),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 6, bottom: 12),
+                          child: _buildNumericField(
+                              'Qtd CTO', _qtdCtoController),
+                        ),
+                      ]),
+                      TableRow(children: [
+                        Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: _buildNumericField(
+                              'Qtd Cx de Emenda', _qtdCxEmendaController),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 6),
+                          child: _buildNumericField(
+                              'Fibra Lançada (m)', _fibraLancadaController),
+                        ),
+                      ]),
+                    ],
+                  ),
+                ],
+              ),
+            ),
 
             const SizedBox(height: 24),
 
@@ -485,8 +380,7 @@ class _TaskExecuteScreenState extends State<TaskExecuteScreen> {
                   ),
                   const SizedBox(width: 8),
                   Text(_uploadStatus,
-                      style:
-                          TextStyle(color: AppTheme.textSecondary)),
+                      style: TextStyle(color: AppTheme.textSecondary)),
                 ],
               ),
               const SizedBox(height: 16),

@@ -149,6 +149,21 @@ class TaskDetailScreen extends StatelessWidget {
 
             const SizedBox(height: 16),
 
+            // Empresa
+            if (task.empresaNome != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _buildInfoRow(
+                  context,
+                  icon: Icons.business_outlined,
+                  color: AppTheme.textSecondary,
+                  child: Text(
+                    task.empresaNome!,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+              ),
+
             // Descrição
             if (task.description != null && task.description!.isNotEmpty) ...[
               Text(task.description!,
@@ -368,6 +383,66 @@ class TaskDetailScreen extends StatelessWidget {
               ),
               const SizedBox(height: 20),
             ],
+
+            // Dados Técnicos ISP (somente leitura, aparece se algum campo > 0)
+            Builder(builder: (context) {
+              final hasTech =
+                  (task.aberturaFechamentoCxEmenda ?? 0) > 0 ||
+                  (task.aberturaFechamentoCto ?? 0) > 0 ||
+                  (task.aberturaFechamentoRozeta ?? 0) > 0 ||
+                  (task.quantidadeCto ?? 0) > 0 ||
+                  (task.quantidadeCxEmenda ?? 0) > 0 ||
+                  (task.fibraLancada ?? 0) > 0;
+              if (!hasTech) return const SizedBox.shrink();
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Dados Técnicos',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 10),
+                  if ((task.aberturaFechamentoCxEmenda ?? 0) > 0)
+                    _buildInfoRow(context,
+                        icon: Icons.cable_outlined,
+                        color: AppTheme.textSecondary,
+                        child: Text(
+                            'Abert./Fech. Cx Emenda: ${task.aberturaFechamentoCxEmenda}')),
+                  if ((task.aberturaFechamentoCto ?? 0) > 0)
+                    _buildInfoRow(context,
+                        icon: Icons.cable_outlined,
+                        color: AppTheme.textSecondary,
+                        child: Text(
+                            'Abert./Fech. CTO: ${task.aberturaFechamentoCto}')),
+                  if ((task.aberturaFechamentoRozeta ?? 0) > 0)
+                    _buildInfoRow(context,
+                        icon: Icons.cable_outlined,
+                        color: AppTheme.textSecondary,
+                        child: Text(
+                            'Abert./Fech. Rozeta: ${task.aberturaFechamentoRozeta}')),
+                  if ((task.quantidadeCto ?? 0) > 0)
+                    _buildInfoRow(context,
+                        icon: Icons.device_hub_outlined,
+                        color: AppTheme.textSecondary,
+                        child: Text('Qtd CTO: ${task.quantidadeCto}')),
+                  if ((task.quantidadeCxEmenda ?? 0) > 0)
+                    _buildInfoRow(context,
+                        icon: Icons.device_hub_outlined,
+                        color: AppTheme.textSecondary,
+                        child:
+                            Text('Qtd Cx de Emenda: ${task.quantidadeCxEmenda}')),
+                  if ((task.fibraLancada ?? 0) > 0)
+                    _buildInfoRow(context,
+                        icon: Icons.straighten_outlined,
+                        color: AppTheme.textSecondary,
+                        child: Text(
+                            'Fibra Lançada: ${task.fibraLancada!.toStringAsFixed(2)} m')),
+                  const SizedBox(height: 20),
+                  const Divider(),
+                  const SizedBox(height: 12),
+                ],
+              );
+            }),
 
             // Botão Executar (só para tarefas não concluídas)
             if (!task.isCompleted) ...[

@@ -166,6 +166,32 @@ class SupabaseService {
     }
   }
   
+  // Salvar dados técnicos ISP da tarefa
+  static Future<bool> updateTaskTechnicalData(
+    int taskId, {
+    required int aberturaFechamentoCxEmenda,
+    required int aberturaFechamentoCto,
+    required int aberturaFechamentoRozeta,
+    required int quantidadeCto,
+    required int quantidadeCxEmenda,
+    required double fibraLancada,
+  }) async {
+    try {
+      await _client.from('task_assignments').update({
+        'abertura_fechamento_cx_emenda': aberturaFechamentoCxEmenda,
+        'abertura_fechamento_cto': aberturaFechamentoCto,
+        'abertura_fechamento_rozeta': aberturaFechamentoRozeta,
+        'quantidade_cto': quantidadeCto,
+        'quantidade_cx_emenda': quantidadeCxEmenda,
+        'fibra_lancada': fibraLancada,
+      }).eq('id', taskId);
+      return true;
+    } catch (e) {
+      print('Erro ao salvar dados técnicos: $e');
+      return false;
+    }
+  }
+
   // Criar notificação
   static Future<bool> createNotification({
     required int userId,
