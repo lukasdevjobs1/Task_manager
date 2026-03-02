@@ -426,9 +426,12 @@ def render_navbar(user: dict, unread: int):
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # Navega se mudou
+    # Navega se mudou — compara contra a página "efetiva" (special pages → dashboard)
     new_page = page_map.get(selected, "dashboard")
-    if new_page != st.session_state.get("current_page", "dashboard"):
+    effective = st.session_state.get("current_page", "dashboard")
+    if effective in SPECIAL_PAGES:
+        effective = "dashboard"
+    if new_page != effective:
         st.session_state["current_page"] = new_page
         st.rerun()
 

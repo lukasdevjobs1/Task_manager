@@ -1,359 +1,366 @@
 """
-Página de detalhes de uma tarefa atribuída (TaskAssignment).
-Mostra informações, mapa, status e permite atualizar.
+Detalhes completos de uma tarefa — informações, dados técnicos ISP,
+fotos da execução e ações de gerenciamento (admin).
 """
 
 import streamlit as st
 from datetime import datetime
-import sys
-import os
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from auth.authentication import require_login, get_current_user, is_admin
 from database.supabase_only_connection import db
+from utils.push_notification import notify_task_assigned
+import os
 
 
-def get_assignment_detail(assignment_id: int, company_id: int) -> dict:
-    """Retorna detalhes completos de uma tarefa atribuída via Supabase."""
-    return db.get_task_assignment_by_id(assignment_id, company_id)
+# ── Helpers ────────────────────────────────────────────────────────────────
+
+STATUS_LABEL = {
+    "pendente":    ("Pendente",    "#f59e0b", "#fffbeb"),
+    "em_andamento":("Em Andamento","#3b82f6", "#eff6ff"),
+    "concluida":   ("Concluída",   "#22c55e", "#f0fdf4"),
+}
+PRIORITY_LABEL = {
+    "baixa": ("Baixa", "#22c55e"),
+    "media": ("Média", "#f59e0b"),
+    "alta":  ("Alta",  "#ef4444"),
+}
 
 
-def update_assignment_status(assignment_id: int, new_status: str, company_id: int, user_id: int, observations: str = None) -> tuple:
-    """Atualiza o status de uma tarefa atribuída."""
-    session = SessionLocal()
+def _fmt_dt(dt_str) -> str:
+    if not dt_str:
+        return "—"
     try:
-        assignment = session.query(TaskAssignment).filter(
-            TaskAssignment.id == assignment_id,
-            TaskAssignment.company_id == company_id,
-        ).first()
-
-        if not assignment:
-            return False, "Tarefa não encontrada."
-
-        old_status = assignment.status
-        assignment.status = new_status
-        assignment.updated_at = datetime.utcnow()
-
-        if observations:
-            assignment.observations = observations
-
-        # Criar notificação para o gerente quando status muda
-        if new_status != old_status:
-            status_labels = {
-                "pending": "Pendente",
-                "in_progress": "Em Andamento",
-                "completed": "Concluída",
-            }
-            assignee = session.query(User).filter(User.id == assignment.assigned_to).first()
-            assignee_name = assignee.full_name if assignee else "Usuário"
-
-            # Notifica quem atribuiu
-            notification = Notification(
-                user_id=assignment.assigned_by,
-                company_id=company_id,
-                type="task_updated" if new_status != "completed" else "task_completed",
-                title=f"Tarefa {status_labels.get(new_status, new_status)}",
-                message=f"{assignee_name} atualizou '{assignment.title}' para {status_labels.get(new_status, new_status)}.",
-                reference_id=assignment.id,
-                read=False,
-            )
-            session.add(notification)
-
-        session.commit()
-        return True, "Status atualizado com sucesso!"
-    except Exception as e:
-        session.rollback()
-        return False, f"Erro ao atualizar: {str(e)}"
-    finally:
-        session.close()
+        dt = datetime.fromisoformat(str(dt_str).replace("Z", "+00:00")).replace(tzinfo=None)
+        return dt.strftime("%d/%m/%Y %H:%M")
+    except Exception:
+        return str(dt_str)[:16]
 
 
-def delete_assignment(assignment_id: int, company_id: int) -> tuple:
-    """Exclui uma tarefa atribuída."""
-    session = SessionLocal()
-    try:
-        assignment = session.query(TaskAssignment).filter(
-            TaskAssignment.id == assignment_id,
-            TaskAssignment.company_id == company_id,
-        ).first()
+def _badge(text: str, color: str, bg: str) -> str:
+    return (
+        f'<span style="background:{bg};color:{color};border:1px solid {color}33;'
+        f'padding:3px 12px;border-radius:20px;font-size:12px;font-weight:600;">'
+        f'{text}</span>'
+    )
 
-        if not assignment:
-            return False, "Tarefa não encontrada."
 
-        # Remover notificações relacionadas
-        session.query(Notification).filter(
-            Notification.reference_id == assignment_id,
-            Notification.type.in_(["task_assigned", "task_updated", "task_completed"]),
-        ).delete(synchronize_session=False)
+def _info_row(label: str, value: str):
+    st.markdown(
+        f'<div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid #f1f5f9;">'
+        f'<span style="min-width:160px;font-size:13px;color:#64748b;font-weight:500;">{label}</span>'
+        f'<span style="font-size:13px;color:#0f172a;">{value}</span>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
 
-        # Remover fotos do storage
-        photos = session.query(AssignmentPhoto).filter(
-            AssignmentPhoto.assignment_id == assignment_id
-        ).all()
-        if photos:
-            try:
-                from utils.file_handler import get_supabase_service_client, SUPABASE_BUCKET
-                supabase = get_supabase_service_client()
-                file_paths = [p.file_path for p in photos]
-                supabase.storage.from_(SUPABASE_BUCKET).remove(file_paths)
-            except Exception:
-                pass
-            for p in photos:
-                session.delete(p)
 
-        session.delete(assignment)
-        session.commit()
-        return True, "Tarefa excluída com sucesso!"
-    except Exception as e:
-        session.rollback()
-        return False, f"Erro ao excluir: {str(e)}"
-    finally:
-        session.close()
+def _section(title: str):
+    st.markdown(
+        f'<p style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;'
+        f'letter-spacing:1px;margin:16px 0 8px;">{title}</p>',
+        unsafe_allow_html=True,
+    )
 
+
+def _card_open(padding="20px"):
+    st.markdown(
+        f'<div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;'
+        f'padding:{padding};margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,0.04);">',
+        unsafe_allow_html=True,
+    )
+
+
+def _card_close():
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+# ── Página principal ────────────────────────────────────────────────────────
 
 def render_assignment_details_page():
-    """Renderiza a página de detalhes da tarefa atribuída."""
     require_login()
     user = get_current_user()
 
     assignment_id = st.session_state.get("selected_assignment_id")
     if not assignment_id:
         st.warning("Nenhuma tarefa selecionada.")
-        if st.button("Voltar ao Dashboard"):
+        if st.button("← Voltar ao Dashboard"):
             st.session_state["current_page"] = "dashboard"
             st.rerun()
         return
 
-    detail = get_assignment_detail(assignment_id, user["company_id"])
-    if not detail:
-        st.error("Tarefa não encontrada ou sem permissão.")
-        if st.button("Voltar ao Dashboard"):
+    task = db.get_task_assignment_by_id(assignment_id, user["company_id"])
+    if not task:
+        st.error("Tarefa não encontrada.")
+        if st.button("← Voltar"):
             st.session_state["current_page"] = "dashboard"
             st.rerun()
         return
 
-    # Verificar permissão (pode ver se é assigned_to, assigned_by, ou admin)
+    # Permissão
     can_view = (
-        detail["assigned_to"] == user["id"]
-        or detail["assigned_by"] == user["id"]
+        task.get("assigned_to") == user["id"]
+        or task.get("assigned_by") == user["id"]
         or is_admin()
     )
     if not can_view:
         st.error("Sem permissão para ver esta tarefa.")
         return
 
-    is_assignee = detail["assigned_to"] == user["id"]
-    is_assigner = detail["assigned_by"] == user["id"]
+    # ── Header da página ────────────────────────────────────────────────────
+    col_back, col_title = st.columns([1, 10])
+    with col_back:
+        if st.button("← Voltar", key="btn_back"):
+            st.session_state["current_page"] = "dashboard"
+            st.rerun()
 
-    # Cabeçalho
-    st.title(f"Tarefa: {detail['title']}")
+    status_info   = STATUS_LABEL.get(task.get("status", ""), ("—", "#64748b", "#f8fafc"))
+    priority_info = PRIORITY_LABEL.get(task.get("priority", ""), ("—", "#64748b"))
 
-    # Botão voltar
-    if st.button("← Voltar"):
-        st.session_state["current_page"] = "dashboard"
-        st.rerun()
+    st.markdown(
+        f'<div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;'
+        f'padding:20px 24px;margin-bottom:20px;box-shadow:0 1px 4px rgba(0,0,0,0.05);">'
+        f'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">'
+        f'<div>'
+        f'<h2 style="margin:0 0 8px;font-size:1.25rem;color:#0f172a;">{task["title"]}</h2>'
+        f'<div style="display:flex;gap:8px;flex-wrap:wrap;">'
+        f'{_badge(status_info[0], status_info[1], status_info[2])}'
+        f'{_badge("Prioridade " + priority_info[0], priority_info[1], priority_info[1] + "15")}'
+        + (f'{_badge(task["empresa_nome"], "#6366f1", "#eef2ff")}' if task.get("empresa_nome") else "")
+        + f'</div></div>'
+        f'<div style="text-align:right;font-size:12px;color:#94a3b8;">ID #{task["id"]}</div>'
+        f'</div></div>',
+        unsafe_allow_html=True,
+    )
 
-    st.markdown("---")
+    # ── Tabs ────────────────────────────────────────────────────────────────
+    tabs = ["Informações", "Dados Técnicos", "Fotos"]
+    if is_admin() or task.get("assigned_by") == user["id"]:
+        tabs.append("Gerenciamento")
 
-    # Status badges
-    status_colors = {
-        "pending": "🟡 Pendente",
-        "in_progress": "🔵 Em Andamento",
-        "completed": "🟢 Concluída",
-    }
-    priority_colors = {
-        "low": "🟢 Baixa",
-        "medium": "🟡 Média",
-        "high": "🟠 Alta",
-        "urgent": "🔴 Urgente",
-    }
+    tab_list = st.tabs(tabs)
 
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.markdown(f"**Status:** {status_colors.get(detail['status'], detail['status'])}")
-    with col2:
-        st.markdown(f"**Prioridade:** {priority_colors.get(detail['priority'], detail['priority'])}")
-    with col3:
-        if detail["due_date"]:
-            try:
-                # Se for string, converter para datetime
-                if isinstance(detail["due_date"], str):
-                    from datetime import datetime
-                    due_date = datetime.fromisoformat(detail["due_date"].replace('Z', '+00:00'))
-                    st.markdown(f"**Prazo:** {due_date.strftime('%d/%m/%Y')}")
-                else:
-                    st.markdown(f"**Prazo:** {detail['due_date'].strftime('%d/%m/%Y')}")
-            except:
-                st.markdown(f"**Prazo:** {detail['due_date']}")
-        else:
-            st.markdown("**Prazo:** Sem prazo")
-
-    st.markdown("---")
-
-    # Tabs
-    tab1, tab2, tab3 = st.tabs(["Informações", "Fotos", "Ações"])
-
-    with tab1:
-        st.subheader("Detalhes")
-
+    # ── TAB 1: Informações ───────────────────────────────────────────────────
+    with tab_list[0]:
         col1, col2 = st.columns(2)
+
         with col1:
-            # Usar os nomes corretos retornados pelo Supabase
-            assigner_name = 'N/A'
-            assignee_name = 'N/A'
-            
-            try:
-                if isinstance(detail.get('assigned_by_user'), dict):
-                    assigner_name = detail['assigned_by_user'].get('full_name', 'N/A')
-                if isinstance(detail.get('assigned_to_user'), dict):
-                    assignee_name = detail['assigned_to_user'].get('full_name', 'N/A')
-            except:
-                pass
-            
-            st.markdown(f"**Atribuído por:** {assigner_name}")
-            st.markdown(f"**Atribuído para:** {assignee_name}")
-            st.markdown(f"**Criado em:** {detail.get('created_at', 'N/A')}")
-            if detail.get("updated_at"):
-                st.markdown(f"**Atualizado em:** {detail.get('updated_at', 'N/A')}")
+            _section("Atribuição")
+            _card_open()
+            assigner = (task.get("assigned_by_user") or {}).get("full_name", "—")
+            assignee = (task.get("assigned_to_user") or {}).get("full_name", "Caixa da Empresa")
+            _info_row("Criada por", assigner)
+            _info_row("Atribuída a", assignee)
+            _info_row("Criada em", _fmt_dt(task.get("created_at")))
+            _info_row("Atualizada em", _fmt_dt(task.get("updated_at")))
+            if task.get("started_at"):
+                _info_row("Iniciada em", _fmt_dt(task["started_at"]))
+            if task.get("completed_at"):
+                _info_row("Concluída em", _fmt_dt(task["completed_at"]))
+            if task.get("due_date"):
+                _info_row("Prazo", _fmt_dt(task["due_date"]))
+            _card_close()
 
         with col2:
-            if detail["address"]:
-                st.markdown(f"**Endereço:** {detail['address']}")
-            if detail["latitude"] and detail["longitude"]:
-                st.markdown(f"**Coordenadas:** {detail['latitude']}, {detail['longitude']}")
-                maps_url = f"https://www.google.com/maps?q={detail['latitude']},{detail['longitude']}"
-                st.markdown(f"[Abrir no Google Maps]({maps_url})")
+            _section("Localização")
+            _card_open()
+            _info_row("Endereço", task.get("address") or "—")
+            if task.get("latitude") and task.get("longitude"):
+                _info_row("Coordenadas", f'{task["latitude"]}, {task["longitude"]}')
+                maps_url = f'https://www.google.com/maps?q={task["latitude"]},{task["longitude"]}'
+                st.markdown(
+                    f'<a href="{maps_url}" target="_blank" style="display:inline-flex;'
+                    f'align-items:center;gap:6px;margin-top:8px;padding:7px 16px;'
+                    f'background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;'
+                    f'border-radius:8px;font-size:13px;font-weight:500;text-decoration:none;">'
+                    f'🗺️ Abrir no Google Maps</a>',
+                    unsafe_allow_html=True,
+                )
+            _card_close()
 
-        if detail["description"]:
-            st.markdown("**Descrição:**")
-            st.text_area("", value=detail["description"], disabled=True, height=100, key="desc_view")
+        if task.get("description"):
+            _section("Descrição")
+            _card_open("16px 20px")
+            st.markdown(
+                f'<p style="font-size:14px;color:#334155;line-height:1.6;margin:0;">'
+                f'{task["description"]}</p>',
+                unsafe_allow_html=True,
+            )
+            _card_close()
 
-        if detail["observations"]:
-            st.markdown("**Observações do campo:**")
-            st.text_area("", value=detail["observations"], disabled=True, height=100, key="obs_view")
+        if task.get("observations"):
+            _section("Observações do técnico")
+            _card_open("16px 20px")
+            st.markdown(
+                f'<p style="font-size:14px;color:#334155;line-height:1.6;margin:0;">'
+                f'{task["observations"]}</p>',
+                unsafe_allow_html=True,
+            )
+            _card_close()
 
-        if detail["materials"]:
-            st.markdown("**Materiais utilizados:**")
-            st.text_area("", value=detail["materials"], disabled=True, height=80, key="materials_view")
+    # ── TAB 2: Dados Técnicos ISP ─────────────────────────────────────────────
+    with tab_list[1]:
+        isp_fields = [
+            ("Abert./Fech. Cx Emenda", task.get("abertura_fechamento_cx_emenda") or 0, ""),
+            ("Abert./Fech. CTO",        task.get("abertura_fechamento_cto") or 0,       ""),
+            ("Abert./Fech. Rozeta",     task.get("abertura_fechamento_rozeta") or 0,    ""),
+            ("Qtd CTO",                 task.get("quantidade_cto") or 0,               ""),
+            ("Qtd Cx de Emenda",        task.get("quantidade_cx_emenda") or 0,         ""),
+            ("Fibra Lançada",           task.get("fibra_lancada") or 0,                "m"),
+        ]
 
-        # Mapa
-        if detail["latitude"] and detail["longitude"]:
-            st.subheader("Localização no Mapa")
-            import pandas as pd
-            map_data = pd.DataFrame({
-                "lat": [detail["latitude"]],
-                "lon": [detail["longitude"]],
-            })
-            st.map(map_data, zoom=15)
+        has_data = any(v[1] > 0 for v in isp_fields)
 
-    with tab2:
-        st.subheader("Fotos da Execução")
+        if has_data:
+            _section("Métricas de Campo")
+            cols = st.columns(3)
+            for i, (label, value, unit) in enumerate(isp_fields):
+                with cols[i % 3]:
+                    display = f"{float(value):.0f} {unit}".strip() if unit else str(int(value))
+                    st.markdown(
+                        f'<div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;'
+                        f'padding:16px 20px;text-align:center;margin-bottom:12px;">'
+                        f'<div style="font-size:1.5rem;font-weight:700;color:#0f172a;">{display}</div>'
+                        f'<div style="font-size:11px;font-weight:600;color:#64748b;'
+                        f'text-transform:uppercase;letter-spacing:0.5px;margin-top:4px;">{label}</div>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+        else:
+            st.markdown(
+                '<div style="background:#f8fafc;border:1px dashed #e2e8f0;border-radius:12px;'
+                'padding:40px;text-align:center;">'
+                '<p style="color:#94a3b8;font-size:14px;margin:0;">Nenhum dado técnico preenchido ainda.</p>'
+                '<p style="color:#cbd5e1;font-size:12px;margin:6px 0 0;">O técnico preenche estes campos ao executar a tarefa no app.</p>'
+                '</div>',
+                unsafe_allow_html=True,
+            )
 
-        # Buscar fotos usando o db
+    # ── TAB 3: Fotos ──────────────────────────────────────────────────────────
+    with tab_list[2]:
         photos = db.get_assignment_photos(assignment_id)
-        
+
         if photos:
+            _section(f"{len(photos)} foto(s) anexada(s)")
             cols = st.columns(3)
             for i, photo in enumerate(photos):
-                with cols[i % 3]:
-                    if photo.get("photo_url"):
-                        st.image(photo["photo_url"], caption=photo.get("original_name", "Foto"), use_container_width=True)
-                    else:
-                        st.warning(f"Foto não disponível: {photo.get('original_name', 'Sem nome')}")
+                url = photo.get("photo_url", "")
+                if url and not url.startswith("data:"):
+                    with cols[i % 3]:
+                        st.image(
+                            url,
+                            caption=photo.get("original_name") or f"Foto {i+1}",
+                            use_container_width=True,
+                        )
         else:
-            st.info("Nenhuma foto adicionada ainda.")
+            st.markdown(
+                '<div style="background:#f8fafc;border:1px dashed #e2e8f0;border-radius:12px;'
+                'padding:40px;text-align:center;">'
+                '<p style="color:#94a3b8;font-size:14px;margin:0;">Nenhuma foto anexada ainda.</p>'
+                '</div>',
+                unsafe_allow_html=True,
+            )
 
-    with tab3:
-        st.subheader("Ações")
-
-        # Ações do assignee (usuário de campo)
-        if is_assignee:
-            if detail["status"] == "pendente":
-                if st.button("▶ Iniciar Tarefa", use_container_width=True, type="primary"):
-                    success, msg = db.update_task_status(assignment_id, "em_andamento")
-                    if success:
+    # ── TAB 4: Gerenciamento (admin/gerente) ────────────────────────────────
+    if len(tab_list) == 4:
+        with tab_list[3]:
+            _section("Alterar Status")
+            _card_open()
+            status_map = {
+                "pendente":     "Pendente",
+                "em_andamento": "Em Andamento",
+                "concluida":    "Concluída",
+            }
+            current_status = task.get("status", "pendente")
+            keys = list(status_map.keys())
+            new_status = st.selectbox(
+                "Status atual",
+                options=keys,
+                format_func=lambda x: status_map[x],
+                index=keys.index(current_status) if current_status in keys else 0,
+                key="mgmt_status",
+            )
+            if st.button("Salvar Status", type="primary", key="btn_save_status"):
+                if new_status != current_status:
+                    ok, msg = db.update_task_status(assignment_id, new_status)
+                    if ok:
                         st.success(msg)
                         st.rerun()
                     else:
                         st.error(msg)
+                else:
+                    st.info("Status não alterado.")
+            _card_close()
 
-            if detail["status"] == "em_andamento":
-                st.markdown("**Concluir Tarefa**")
-                observations = st.text_area(
-                    "Observações da execução",
-                    placeholder="Descreva o que foi feito, problemas encontrados, etc.",
-                    key="complete_obs",
-                )
-                if st.button("✅ Concluir Tarefa", use_container_width=True, type="primary"):
-                    success, msg = db.update_task_status(
-                        assignment_id, "concluida", observations if observations else None
+            _section("Reatribuir Tarefa")
+            _card_open()
+            all_users = db.get_all_users(user["company_id"])
+            available = [u for u in all_users if u.get("active") and u.get("role") != "admin"]
+            if available:
+                user_opts = {f"{u['full_name']} ({u['team'].capitalize()})": u["id"] for u in available}
+                selected_label = st.selectbox("Atribuir para:", list(user_opts.keys()), key="mgmt_reassign")
+                if st.button("Confirmar Reatribuição", key="btn_reassign"):
+                    new_uid = user_opts[selected_label]
+                    db.client.table("task_assignments").update(
+                        {"assigned_to": new_uid}
+                    ).eq("id", assignment_id).execute()
+                    db.create_notification(
+                        user_id=new_uid,
+                        company_id=user["company_id"],
+                        type="task_assigned",
+                        title="Tarefa Reatribuída",
+                        message=f'{user["full_name"]} reatribuiu: {task["title"]}',
+                        reference_id=assignment_id,
                     )
-                    if success:
-                        st.success(msg)
-                        st.rerun()
-                    else:
-                        st.error(msg)
-
-            if detail["status"] in ["pendente", "em_andamento"]:
-                st.markdown("---")
-                st.markdown("**Atualizar Observações**")
-                new_obs = st.text_area(
-                    "Observações",
-                    value=detail.get("notes") or "",
-                    key="update_obs",
-                )
-                if st.button("Salvar Observações", key="save_obs"):
-                    success, msg = db.update_task_status(assignment_id, detail["status"], new_obs)
-                    if success:
-                        st.success("Observações salvas!")
-                        st.rerun()
-                    else:
-                        st.error(msg)
-
-        # Ações do admin/gerente
-        if is_assigner or is_admin():
-            st.markdown("---")
-            st.markdown("**Ações do Gerente**")
-
-            if detail["status"] != "concluida":
-                status_map = {"pendente": "Pendente", "em_andamento": "Em Andamento", "concluida": "Concluída"}
-                new_status = st.selectbox(
-                    "Alterar Status",
-                    options=["pendente", "em_andamento", "concluida"],
-                    format_func=lambda x: status_map[x],
-                    index=max(0, list(status_map.keys()).index(detail["status"]) if detail["status"] in status_map else 0),
-                    key="admin_status",
-                )
-                if st.button("Atualizar Status", key="admin_update_status"):
-                    if new_status != detail["status"]:
-                        success, msg = db.update_task_status(assignment_id, new_status)
-                        if success:
-                            st.success(msg)
-                            st.rerun()
-                        else:
-                            st.error(msg)
-
-            st.markdown("---")
-            st.markdown("**Excluir Tarefa**")
-            st.warning("Esta ação é irreversível!")
-            confirm = st.checkbox("Confirmo que desejo excluir esta tarefa", key="confirm_delete")
-            if confirm:
-                if st.button("🗑 Excluir Tarefa", type="secondary", use_container_width=True):
                     try:
-                        # Excluir fotos primeiro
-                        photos = db.get_assignment_photos(assignment_id)
-                        for photo in photos:
-                            db.client.table('assignment_photos').delete().eq('id', photo['id']).execute()
-                        
-                        # Excluir tarefa
-                        result = db.client.table('task_assignments').delete().eq('id', assignment_id).eq('company_id', user['company_id']).execute()
-                        
-                        if result.data:
-                            st.success("Tarefa excluída com sucesso!")
-                            st.session_state["current_page"] = "dashboard"
-                            st.rerun()
-                        else:
-                            st.error("Erro ao excluir tarefa.")
+                        assigned_user = db.get_user_by_id(new_uid)
+                        if assigned_user and assigned_user.get("push_token"):
+                            notify_task_assigned(
+                                user_push_token=assigned_user["push_token"],
+                                task_id=assignment_id,
+                                task_title=task["title"],
+                                assigned_by_name=user["full_name"],
+                                server_key=os.environ.get("FCM_SERVER_KEY"),
+                            )
+                    except Exception:
+                        pass
+                    st.success("Tarefa reatribuída!")
+                    st.rerun()
+            _card_close()
+
+            _section("Devolver à Caixa da Empresa")
+            _card_open()
+            st.markdown(
+                '<p style="font-size:13px;color:#64748b;">A tarefa volta a ficar disponível para ser atribuída.</p>',
+                unsafe_allow_html=True,
+            )
+            if st.button("Devolver à caixa", key="btn_unassign"):
+                db.client.table("task_assignments").update(
+                    {"assigned_to": None}
+                ).eq("id", assignment_id).execute()
+                st.success("Tarefa devolvida à caixa da empresa!")
+                st.session_state["current_page"] = "task_management"
+                st.rerun()
+            _card_close()
+
+            _section("Zona de Perigo")
+            _card_open()
+            st.markdown(
+                '<p style="font-size:13px;color:#ef4444;">Esta ação é irreversível. Todas as fotos e dados serão removidos.</p>',
+                unsafe_allow_html=True,
+            )
+            confirm = st.checkbox("Confirmo que desejo excluir permanentemente esta tarefa", key="chk_delete")
+            if confirm:
+                if st.button("Excluir Tarefa", type="secondary", key="btn_delete"):
+                    try:
+                        photos_to_del = db.get_assignment_photos(assignment_id)
+                        for p in photos_to_del:
+                            db.client.table("assignment_photos").delete().eq("id", p["id"]).execute()
+                        db.client.table("task_assignments").delete().eq(
+                            "id", assignment_id
+                        ).eq("company_id", user["company_id"]).execute()
+                        st.success("Tarefa excluída.")
+                        st.session_state["current_page"] = "dashboard"
+                        st.rerun()
                     except Exception as e:
-                        st.error(f"Erro ao excluir: {str(e)}")
+                        st.error(f"Erro ao excluir: {e}")
+            _card_close()
