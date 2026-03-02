@@ -2,107 +2,122 @@ import streamlit as st
 from database.supabase_only_connection import db
 from auth.authentication import require_login, get_current_user
 from datetime import datetime
-import base64
-from io import BytesIO
-from PIL import Image
+
 
 def show_completed_tasks_manager():
     require_login()
     user = get_current_user()
-    
+
     if not user:
         st.error("Usuário não encontrado")
         return
-    
-    st.title("📋 Tarefas Concluídas - Visualização Gerente")
-    
-    # Filtros
+
+    st.title("Tarefas Concluídas")
+
+    # ── Filtros ────────────────────────────────────────────────────────────
     col1, col2 = st.columns(2)
     with col1:
         date_filter = st.date_input("Filtrar por data", value=None)
     with col2:
-        collaborator_filter = st.selectbox("Filtrar por colaborador", ["Todos"] + get_collaborators(user))
-    
-    # Buscar tarefas concluídas
-    tasks = db.get_task_assignments(user['company_id'], status='concluida')
-    
-    # Aplicar filtros
+        collaborators = _get_collaborators(user)
+        collaborator_filter = st.selectbox(
+            "Filtrar por colaborador", ["Todos"] + collaborators
+        )
+
+    # ── Busca ──────────────────────────────────────────────────────────────
+    tasks = db.get_task_assignments(user["company_id"], status="concluida")
+
     if date_filter:
-        tasks = [t for t in tasks if t.get('completed_at') and datetime.fromisoformat(t['completed_at'].replace('Z', '')).date() == date_filter]
-    
+        tasks = [
+            t for t in tasks
+            if t.get("completed_at")
+            and _parse_dt(t["completed_at"]).date() == date_filter
+        ]
+
     if collaborator_filter != "Todos":
-        tasks = [t for t in tasks if t.get('assigned_to_user', {}).get('full_name') == collaborator_filter]
-    
-    # Estatísticas
-    st.subheader("📊 Estatísticas")
+        tasks = [
+            t for t in tasks
+            if (t.get("assigned_to_user") or {}).get("full_name") == collaborator_filter
+        ]
+
+    # ── KPIs usando colunas estruturadas (migration 005) ───────────────────
+    total_ctos      = sum(t.get("quantidade_cto") or 0 for t in tasks)
+    total_cx_emenda = sum(t.get("quantidade_cx_emenda") or 0 for t in tasks)
+    total_fibra     = sum(float(t.get("fibra_lancada") or 0) for t in tasks)
+
     col1, col2, col3, col4 = st.columns(4)
-    
-    total_ctos = 0
-    total_ceos = 0
-    
-    for task in tasks:
-        materials = task.get('materials', '').lower()
-        import re
-        cto_match = re.findall(r'(\d+)\s*cto', materials)
-        ceo_match = re.findall(r'(\d+)\s*ceo', materials)
-        total_ctos += sum(int(x) for x in cto_match)
-        total_ceos += sum(int(x) for x in ceo_match)
-    
     col1.metric("Total de Tarefas", len(tasks))
-    col2.metric("CTOs Instaladas", total_ctos)
-    col3.metric("CEOs Instaladas", total_ceos)
-    col4.metric("Colaboradores", len(set(t.get('assigned_to') for t in tasks)))
-    
+    col2.metric("CTOs", total_ctos)
+    col3.metric("Cx de Emenda", total_cx_emenda)
+    col4.metric("Fibra Lançada (m)", f"{total_fibra:.0f}")
+
     st.divider()
-    
-    # Listar tarefas
+
+    # ── Lista de tarefas ───────────────────────────────────────────────────
     if not tasks:
         st.info("Nenhuma tarefa concluída encontrada.")
         return
-    
+
     for task in tasks:
-        with st.expander(f"🎯 {task['title']} - {task.get('assigned_to_user', {}).get('full_name', 'N/A')}"):
+        assignee = (task.get("assigned_to_user") or {}).get("full_name", "N/A")
+        with st.expander(f"{task['title']} — {assignee}"):
             col1, col2 = st.columns([2, 1])
-            
+
             with col1:
-                st.write(f"**Descrição:** {task.get('description', 'N/A')}")
-                st.write(f"**Endereço:** {task.get('address', 'N/A')}")
-                st.write(f"**Concluída em:** {format_datetime(task.get('completed_at'))}")
-                
-                st.write("**Serviço Realizado:**")
-                st.text_area("", task.get('service_notes', 'Não informado'), height=100, disabled=True, key=f"notes_{task['id']}")
-                
-                st.write("**Materiais Utilizados:**")
-                st.text_area("", task.get('materials', 'Não informado'), height=100, disabled=True, key=f"materials_{task['id']}")
-            
+                st.write(f"**Empresa:** {task.get('empresa_nome') or '—'}")
+                st.write(f"**Descrição:** {task.get('description') or '—'}")
+                st.write(f"**Endereço:** {task.get('address') or '—'}")
+                st.write(f"**Concluída em:** {_fmt_dt(task.get('completed_at'))}")
+
+                if task.get("observations"):
+                    st.write("**Observações:**")
+                    st.text_area(
+                        "",
+                        task["observations"],
+                        height=80,
+                        disabled=True,
+                        key=f"obs_{task['id']}",
+                    )
+
+                # Dados técnicos ISP
+                cto  = task.get("quantidade_cto") or 0
+                cx   = task.get("quantidade_cx_emenda") or 0
+                fibra = float(task.get("fibra_lancada") or 0)
+                if cto or cx or fibra:
+                    st.write("**Dados Técnicos:**")
+                    tc1, tc2, tc3 = st.columns(3)
+                    tc1.metric("CTOs", cto)
+                    tc2.metric("Cx Emenda", cx)
+                    tc3.metric("Fibra (m)", f"{fibra:.0f}")
+
             with col2:
-                # Buscar fotos
-                photos = db.get_assignment_photos(task['id'])
-                
+                photos = db.get_assignment_photos(task["id"])
                 if photos:
                     st.write(f"**Fotos ({len(photos)}):**")
                     for idx, photo in enumerate(photos):
-                        try:
-                            # Decodificar base64
-                            if photo['photo_url'].startswith('data:image'):
-                                base64_str = photo['photo_url'].split(',')[1]
-                                img_data = base64.b64decode(base64_str)
-                                img = Image.open(BytesIO(img_data))
-                                st.image(img, caption=f"Foto {idx+1}", use_container_width=True)
-                        except Exception as e:
-                            st.error(f"Erro ao carregar foto: {e}")
+                        url = photo.get("photo_url", "")
+                        if url and not url.startswith("data:"):
+                            st.image(url, caption=f"Foto {idx+1}", use_container_width=True)
                 else:
-                    st.info("Sem fotos")
+                    st.caption("Sem fotos")
 
-def get_collaborators(user):
-    users = db.get_all_users(user['company_id'])
-    return [u['full_name'] for u in users if u['role'] == 'user']
 
-def format_datetime(dt_str):
+def _get_collaborators(user: dict) -> list:
+    users = db.get_all_users(user["company_id"])
+    return [u["full_name"] for u in users if u.get("role") == "user"]
+
+
+def _parse_dt(dt_str: str) -> datetime:
+    try:
+        return datetime.fromisoformat(str(dt_str).replace("Z", "+00:00")).replace(tzinfo=None)
+    except Exception:
+        return datetime.min
+
+
+def _fmt_dt(dt_str) -> str:
     if not dt_str:
         return "N/A"
     try:
-        dt = datetime.fromisoformat(dt_str.replace('Z', ''))
-        return dt.strftime('%d/%m/%Y %H:%M')
-    except:
-        return dt_str
+        return _parse_dt(dt_str).strftime("%d/%m/%Y %H:%M")
+    except Exception:
+        return str(dt_str)

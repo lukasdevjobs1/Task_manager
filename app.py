@@ -132,72 +132,80 @@ def configure_page():
         }
 
         /* ── Barra de navegação ────────────────────────────────────────── */
-        .isp-navbar {
-            background: #ffffff;
-            border-bottom: 1px solid #e2e8f0;
-            padding: 0 2rem;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            height: 50px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+
+        /* Container branco da navbar */
+        div[data-testid="stHorizontalBlock"].isp-nav-row > div {
+            padding: 0 !important;
         }
-        .isp-nav-item {
-            display: inline-flex;
+
+        /* Radio horizontal como nav pills */
+        [data-testid="stRadio"] > div[role="radiogroup"] {
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            gap: 2px !important;
             align-items: center;
-            gap: 7px;
-            padding: 6px 16px;
-            border-radius: 8px;
-            font-size: 13.5px;
-            font-weight: 500;
-            color: #475569;
-            cursor: pointer;
-            border: none;
-            background: transparent;
-            text-decoration: none;
-            transition: all 0.15s;
+        }
+
+        /* Cada opção do radio */
+        [data-testid="stRadio"] label {
+            padding: 7px 15px !important;
+            border-radius: 8px !important;
+            transition: background 0.15s, color 0.15s !important;
+            cursor: pointer !important;
+            margin: 0 !important;
+        }
+
+        /* Texto de cada opção */
+        [data-testid="stRadio"] label p {
+            font-size: 13.5px !important;
+            font-weight: 500 !important;
+            color: #475569 !important;
+            margin: 0 !important;
             white-space: nowrap;
         }
-        .isp-nav-item:hover {
-            background: #f1f5f9;
-            color: #1e293b;
+
+        /* Esconde o círculo do radio */
+        [data-testid="stRadio"] label > div:first-of-type {
+            display: none !important;
         }
-        .isp-nav-item.active {
-            background: #eff6ff;
-            color: #2563eb;
-            font-weight: 600;
+
+        /* Hover */
+        [data-testid="stRadio"] label:hover {
+            background: #f1f5f9 !important;
         }
-        .isp-nav-badge {
-            background: #ef4444;
-            color: white;
-            font-size: 10px;
-            font-weight: 700;
-            padding: 1px 6px;
-            border-radius: 10px;
-            min-width: 18px;
-            text-align: center;
+        [data-testid="stRadio"] label:hover p {
+            color: #1e293b !important;
         }
-        .isp-nav-divider {
-            flex: 1;
+
+        /* Estado ativo (selecionado) */
+        [data-testid="stRadio"] label:has(input:checked) {
+            background: #eff6ff !important;
         }
-        .isp-logout-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 6px 14px;
-            border-radius: 8px;
-            font-size: 13px;
-            font-weight: 500;
-            color: #64748b;
-            cursor: pointer;
-            border: 1px solid #e2e8f0;
-            background: transparent;
-            transition: all 0.15s;
+        [data-testid="stRadio"] label:has(input:checked) p {
+            color: #2563eb !important;
+            font-weight: 600 !important;
         }
-        .isp-logout-btn:hover {
-            background: #fef2f2;
-            color: #dc2626;
-            border-color: #fca5a5;
+
+        /* Label do widget radio (ocultar) */
+        [data-testid="stRadio"] > [data-testid="stWidgetLabel"] {
+            display: none !important;
+        }
+
+        /* Botão logout estilizado como nav */
+        div.nav-logout .stButton > button {
+            background: transparent !important;
+            border: 1px solid #e2e8f0 !important;
+            color: #64748b !important;
+            border-radius: 8px !important;
+            font-size: 13px !important;
+            font-weight: 500 !important;
+            padding: 6px 14px !important;
+            height: auto !important;
+        }
+        div.nav-logout .stButton > button:hover {
+            background: #fef2f2 !important;
+            color: #dc2626 !important;
+            border-color: #fca5a5 !important;
         }
 
         /* ── Conteúdo ──────────────────────────────────────────────────── */
@@ -368,9 +376,8 @@ def render_topbar(user: dict, unread: int):
 
 
 def render_navbar(user: dict, unread: int):
-    """Barra de navegação horizontal com botões Streamlit."""
+    """Barra de navegação horizontal com radio pills + botão logout."""
     current_page = st.session_state.get("current_page", "dashboard")
-    # Páginas especiais ficam com o item pai ativo
     if current_page in SPECIAL_PAGES:
         current_page = "dashboard"
 
@@ -378,32 +385,52 @@ def render_navbar(user: dict, unread: int):
     if is_admin():
         nav_items += NAV_ITEMS_ADMIN
 
-    # Calcula colunas: itens de nav + espaçador + logout
-    n = len(nav_items)
-    col_sizes = [1] * n + [4] + [1]  # espaçador no meio, logout no final
-    cols = st.columns(col_sizes)
-
+    # Monta labels e mapa label→page
+    labels = []
+    page_map = {}
+    current_index = 0
     for i, (page, label, icon) in enumerate(nav_items):
-        notif_suffix = f" ({unread})" if page == "notifications" and unread > 0 else ""
-        btn_label = f"{icon} {label}{notif_suffix}"
-        is_active = st.session_state.get("current_page", "dashboard") == page
-        with cols[i]:
-            if st.button(
-                btn_label,
-                key=f"nav_{page}",
-                use_container_width=True,
-                type="primary" if is_active else "secondary",
-            ):
-                st.session_state["current_page"] = page
-                st.rerun()
+        suffix = f" ({unread})" if page == "notifications" and unread > 0 else ""
+        full_label = f"{icon} {label}{suffix}"
+        labels.append(full_label)
+        page_map[full_label] = page
+        if page == current_page:
+            current_index = i
 
-    # Logout (última coluna)
-    with cols[-1]:
-        if st.button("Sair", key="nav_logout", use_container_width=True):
+    # Navbar: fundo branco, borda inferior
+    st.markdown(
+        "<div style='background:#fff;border-bottom:1px solid #e2e8f0;"
+        "padding:8px 24px;display:flex;align-items:center;gap:8px;"
+        "box-shadow:0 1px 3px rgba(0,0,0,0.05);'>",
+        unsafe_allow_html=True,
+    )
+
+    col_radio, col_logout = st.columns([10, 1])
+
+    with col_radio:
+        selected = st.radio(
+            "nav",
+            labels,
+            index=current_index,
+            horizontal=True,
+            label_visibility="collapsed",
+            key="main_nav_radio",
+        )
+
+    with col_logout:
+        st.markdown('<div class="nav-logout">', unsafe_allow_html=True)
+        if st.button("🚪 Sair", key="nav_logout", use_container_width=True):
             logout_user()
             st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown("<hr style='margin:0;border-color:#e2e8f0'>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # Navega se mudou
+    new_page = page_map.get(selected, "dashboard")
+    if new_page != st.session_state.get("current_page", "dashboard"):
+        st.session_state["current_page"] = new_page
+        st.rerun()
 
 
 def main():
