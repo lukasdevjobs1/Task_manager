@@ -188,7 +188,7 @@ flutter_task_manager/
 └── pubspec.yaml
 ```
 
-## 🚀 Como Executar
+##  Como Executar
 
 ### Pré-requisitos
 
@@ -276,7 +276,7 @@ flutter build ios --release
 # Depois, abrir no Xcode para assinar e fazer upload
 ```
 
-## 🔧 Configuração
+##  Configuração
 
 ### Credenciais Supabase
 
@@ -337,7 +337,7 @@ static const Color primaryColor = Color(0xFF1a73e8); // Azul profissional
 - ✅ Validação de dados no cliente e servidor
 - ✅ Upload seguro de fotos
 
-## 📈 Performance
+##  Performance
 
 - ✅ Cache de imagens com **CachedNetworkImage**
 - ✅ Cache local com **Hive** para modo offline
