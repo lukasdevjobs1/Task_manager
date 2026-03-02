@@ -57,13 +57,13 @@ Este repositório contém principalmente o **app Flutter (`lib/`)** usado em pro
 
 ## Capturas de tela
 
-Tela de **Relatórios** com resumo de produtividade e distribuição de status:
+### Ícone do app
 
-```0:0:assets/screenshots/relatorios-dashboard.png
+![Ícone do App](assets/icons/Captura%20de%20tela%202026-02-04%20043618.png)
 
-```
+### Tela em funcionamento
 
-> Dica: copie a imagem fornecida (`Captura_de_tela`) para o projeto em `assets/screenshots/relatorios-dashboard.png` para que o preview funcione em plataformas como GitHub.
+![App em funcionamento](assets/images/Captura%20de%20tela%202026-03-01%20153218.png)
 
 ---
 
