@@ -278,8 +278,13 @@ class SupabaseDatabase:
             return None
     
     def update_task_status(self, assignment_id: int, status: str, notes: str = None) -> tuple[bool, str]:
-        """Atualiza status da tarefa"""
+        """Atualiza status da tarefa preservando materiais"""
         try:
+            # Busca tarefa atual para preservar dados
+            current_task = self.get_task_assignment_by_id(assignment_id)
+            if not current_task:
+                return False, "Tarefa não encontrada."
+            
             update_data = {
                 'status': status,
                 'updated_at': datetime.utcnow().isoformat()
@@ -291,7 +296,7 @@ class SupabaseDatabase:
                 update_data['completed_at'] = datetime.utcnow().isoformat()
             
             if notes:
-                update_data['notes'] = notes
+                update_data['observations'] = notes
             
             result = self.client.table('task_assignments').update(update_data).eq('id', assignment_id).execute()
             

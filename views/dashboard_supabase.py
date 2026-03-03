@@ -68,7 +68,7 @@ def get_assigned_by_me(user_id: int, company_id: int) -> list:
         return []
 
 
-def render_assignment_card(assignment: dict, show_assignee: bool = False, card_index: int = 0):
+def render_assignment_card(assignment: dict, show_assignee: bool = False, card_index: int = 0, is_manager: bool = False):
     """Renderiza um card de tarefa atribuída."""
     status_labels = {
         "pendente": ("🟡", "Pendente"),
@@ -241,8 +241,8 @@ def render_dashboard_page():
         st.metric("Fibra Lançada (m)", f"{total_fibra:.0f}")
 
     # ── Tabs ───────────────────────────────────────────────────────────────
-    tab_geral, tab_empresa, tab_desempenho = st.tabs(
-        ["📊 Geral", "🏢 Por Empresa", "👥 Desempenho"]
+    tab_geral, tab_empresa, tab_desempenho, tab_materiais = st.tabs(
+        ["📊 Geral", "🏢 Por Empresa", "👥 Desempenho", "🔧 Materiais"]
     )
 
     # ── TAB GERAL ──────────────────────────────────────────────────────────
@@ -469,6 +469,85 @@ def render_dashboard_page():
             st.plotly_chart(fig_ranking, use_container_width=True, key="chart_ranking")
         else:
             st.info("Nenhum colaborador encontrado.")
+    
+    # ── TAB MATERIAIS ──────────────────────────────────────────────────────
+    with tab_materiais:
+        st.subheader("Detalhamento de Materiais por Tarefa")
+        
+        # Preparar dados de materiais por tarefa
+        materiais_tarefas = []
+        for a in all_assignments:
+            # Calcular materiais desta tarefa
+            task_ctos = a.get('quantidade_cto') or 0
+            task_cx_emenda = a.get('quantidade_cx_emenda') or 0
+            task_fibra = float(a.get('fibra_lancada') or 0)
+            
+            # Adicionar do campo materials (texto)
+            if a.get('materials'):
+                mat_data = extract_materials_from_text(a['materials'])
+                task_ctos += mat_data['ctos']
+                task_fibra += mat_data['cabo_metros']
+            
+            # Só adiciona se tiver algum material
+            if task_ctos > 0 or task_cx_emenda > 0 or task_fibra > 0:
+                assignee = a.get('assigned_to_user', {})
+                materiais_tarefas.append({
+                    'ID': a['id'],
+                    'Tarefa': a['title'],
+                    'Empresa': a.get('empresa_nome', 'N/A'),
+                    'Técnico': assignee.get('full_name', 'N/A') if isinstance(assignee, dict) else 'N/A',
+                    'Status': a['status'],
+                    'CTOs': int(task_ctos),
+                    'Cx Emenda': int(task_cx_emenda),
+                    'Fibra (m)': round(task_fibra, 2),
+                    'Materials': a.get('materials', '-')[:50] + '...' if a.get('materials') and len(a.get('materials', '')) > 50 else a.get('materials', '-')
+                })
+        
+        if materiais_tarefas:
+            df_materiais = pd.DataFrame(materiais_tarefas)
+            
+            # Filtro de status
+            status_mat_filter = st.selectbox(
+                "Filtrar por status",
+                ["Todos", "concluida", "em_andamento", "pendente"],
+                key="mat_status_filter"
+            )
+            
+            if status_mat_filter != "Todos":
+                df_materiais = df_materiais[df_materiais['Status'] == status_mat_filter]
+            
+            # Exibir tabela
+            st.dataframe(df_materiais, use_container_width=True, hide_index=True)
+            
+            # Totais
+            st.markdown("---")
+            col_t1, col_t2, col_t3, col_t4 = st.columns(4)
+            with col_t1:
+                st.metric("Total de Tarefas", len(df_materiais))
+            with col_t2:
+                st.metric("Total CTOs", int(df_materiais['CTOs'].sum()))
+            with col_t3:
+                st.metric("Total Cx Emenda", int(df_materiais['Cx Emenda'].sum()))
+            with col_t4:
+                st.metric("Total Fibra (m)", f"{df_materiais['Fibra (m)'].sum():.0f}")
+            
+            # Gráfico de materiais por empresa
+            if empresa_filter == "Todas":
+                st.subheader("Materiais por Empresa")
+                mat_por_emp = df_materiais.groupby('Empresa').agg({
+                    'CTOs': 'sum',
+                    'Cx Emenda': 'sum',
+                    'Fibra (m)': 'sum'
+                }).reset_index()
+                
+                fig_mat = go.Figure(data=[
+                    go.Bar(name='CTOs', x=mat_por_emp['Empresa'], y=mat_por_emp['CTOs'], marker_color='#2196F3'),
+                    go.Bar(name='Cx Emenda', x=mat_por_emp['Empresa'], y=mat_por_emp['Cx Emenda'], marker_color='#4CAF50'),
+                ])
+                fig_mat.update_layout(title='Materiais Utilizados por Empresa', barmode='group', height=400)
+                st.plotly_chart(fig_mat, use_container_width=True, key="chart_mat_empresa")
+        else:
+            st.info("ℹ️ Nenhuma tarefa com materiais registrados no período selecionado.")
 
 
 
