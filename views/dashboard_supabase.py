@@ -472,11 +472,75 @@ def render_dashboard_page():
     
     # ── TAB MATERIAIS ──────────────────────────────────────────────────────
     with tab_materiais:
-        st.subheader("Detalhamento de Materiais por Tarefa")
+        st.subheader("🔧 Detalhamento de Materiais por Tarefa")
         
-        # Preparar dados de materiais por tarefa
+        # Filtros específicos da tab materiais
+        col_m1, col_m2, col_m3 = st.columns(3)
+        
+        with col_m1:
+            tipo_filtro = st.selectbox(
+                "Tipo de Filtro",
+                ["Período Rápido", "Data Específica", "Intervalo de Datas"],
+                key="mat_tipo_filtro"
+            )
+        
+        # Filtrar tarefas por data
+        tarefas_filtradas = list(all_assignments_raw)
+        
+        if tipo_filtro == "Período Rápido":
+            with col_m2:
+                periodo_mat = st.selectbox(
+                    "Período",
+                    ["Hoje", "Ontem", "Esta Semana", "Semana Passada", "Este Mês", "Mês Passado", "Todos"],
+                    key="mat_periodo"
+                )
+            
+            hoje = datetime.now().date()
+            if periodo_mat == "Hoje":
+                tarefas_filtradas = [a for a in tarefas_filtradas if parse_date(a.get('created_at')).date() == hoje]
+            elif periodo_mat == "Ontem":
+                ontem = hoje - timedelta(days=1)
+                tarefas_filtradas = [a for a in tarefas_filtradas if parse_date(a.get('created_at')).date() == ontem]
+            elif periodo_mat == "Esta Semana":
+                inicio_semana = hoje - timedelta(days=hoje.weekday())
+                tarefas_filtradas = [a for a in tarefas_filtradas if parse_date(a.get('created_at')).date() >= inicio_semana]
+            elif periodo_mat == "Semana Passada":
+                inicio_semana_passada = hoje - timedelta(days=hoje.weekday() + 7)
+                fim_semana_passada = inicio_semana_passada + timedelta(days=6)
+                tarefas_filtradas = [a for a in tarefas_filtradas if inicio_semana_passada <= parse_date(a.get('created_at')).date() <= fim_semana_passada]
+            elif periodo_mat == "Este Mês":
+                tarefas_filtradas = [a for a in tarefas_filtradas if parse_date(a.get('created_at')).month == hoje.month and parse_date(a.get('created_at')).year == hoje.year]
+            elif periodo_mat == "Mês Passado":
+                mes_passado = (hoje.replace(day=1) - timedelta(days=1))
+                tarefas_filtradas = [a for a in tarefas_filtradas if parse_date(a.get('created_at')).month == mes_passado.month and parse_date(a.get('created_at')).year == mes_passado.year]
+        
+        elif tipo_filtro == "Data Específica":
+            with col_m2:
+                data_especifica = st.date_input(
+                    "Selecione a Data",
+                    value=datetime.now().date(),
+                    key="mat_data_especifica"
+                )
+            tarefas_filtradas = [a for a in tarefas_filtradas if parse_date(a.get('created_at')).date() == data_especifica]
+        
+        elif tipo_filtro == "Intervalo de Datas":
+            with col_m2:
+                data_inicio = st.date_input(
+                    "Data Início",
+                    value=datetime.now().date() - timedelta(days=30),
+                    key="mat_data_inicio"
+                )
+            with col_m3:
+                data_fim = st.date_input(
+                    "Data Fim",
+                    value=datetime.now().date(),
+                    key="mat_data_fim"
+                )
+            tarefas_filtradas = [a for a in tarefas_filtradas if data_inicio <= parse_date(a.get('created_at')).date() <= data_fim]
+        
+        # Preparar dados de materiais por tarefa (usando tarefas_filtradas)
         materiais_tarefas = []
-        for a in all_assignments:
+        for a in tarefas_filtradas:
             # Calcular materiais desta tarefa
             task_ctos = a.get('quantidade_cto') or 0
             task_cx_emenda = a.get('quantidade_cx_emenda') or 0
@@ -493,6 +557,7 @@ def render_dashboard_page():
                 assignee = a.get('assigned_to_user', {})
                 materiais_tarefas.append({
                     'ID': a['id'],
+                    'Data': parse_date(a.get('created_at')).strftime('%d/%m/%Y'),
                     'Tarefa': a['title'],
                     'Empresa': a.get('empresa_nome', 'N/A'),
                     'Técnico': assignee.get('full_name', 'N/A') if isinstance(assignee, dict) else 'N/A',
@@ -506,18 +571,40 @@ def render_dashboard_page():
         if materiais_tarefas:
             df_materiais = pd.DataFrame(materiais_tarefas)
             
-            # Filtro de status
-            status_mat_filter = st.selectbox(
-                "Filtrar por status",
-                ["Todos", "concluida", "em_andamento", "pendente"],
-                key="mat_status_filter"
-            )
+            # Filtros adicionais
+            col_f1, col_f2 = st.columns(2)
+            with col_f1:
+                status_mat_filter = st.selectbox(
+                    "Filtrar por Status",
+                    ["Todos", "concluida", "em_andamento", "pendente"],
+                    key="mat_status_filter"
+                )
+            with col_f2:
+                empresa_mat_filter = st.selectbox(
+                    "Filtrar por Empresa",
+                    ["Todas"] + sorted(df_materiais['Empresa'].unique().tolist()),
+                    key="mat_empresa_filter"
+                )
             
+            # Aplicar filtros
             if status_mat_filter != "Todos":
                 df_materiais = df_materiais[df_materiais['Status'] == status_mat_filter]
+            if empresa_mat_filter != "Todas":
+                df_materiais = df_materiais[df_materiais['Empresa'] == empresa_mat_filter]
             
             # Exibir tabela
+            st.markdown(f"**{len(df_materiais)} tarefa(s) encontrada(s)**")
             st.dataframe(df_materiais, use_container_width=True, hide_index=True)
+            
+            # Botão para exportar
+            csv = df_materiais.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📊 Exportar para CSV",
+                data=csv,
+                file_name=f"materiais_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv",
+                key="download_materiais"
+            )
             
             # Totais
             st.markdown("---")
@@ -532,8 +619,8 @@ def render_dashboard_page():
                 st.metric("Total Fibra (m)", f"{df_materiais['Fibra (m)'].sum():.0f}")
             
             # Gráfico de materiais por empresa
-            if empresa_filter == "Todas":
-                st.subheader("Materiais por Empresa")
+            if empresa_mat_filter == "Todas" and len(df_materiais) > 0:
+                st.subheader("📊 Materiais por Empresa")
                 mat_por_emp = df_materiais.groupby('Empresa').agg({
                     'CTOs': 'sum',
                     'Cx Emenda': 'sum',
@@ -546,6 +633,41 @@ def render_dashboard_page():
                 ])
                 fig_mat.update_layout(title='Materiais Utilizados por Empresa', barmode='group', height=400)
                 st.plotly_chart(fig_mat, use_container_width=True, key="chart_mat_empresa")
+                
+                # Gráfico de evolução diária (se intervalo > 1 dia)
+                if tipo_filtro == "Intervalo de Datas" and (data_fim - data_inicio).days > 1:
+                    st.subheader("📈 Evolução Diária de Materiais")
+                    df_materiais['Data_dt'] = pd.to_datetime(df_materiais['Data'], format='%d/%m/%Y')
+                    evolucao = df_materiais.groupby('Data_dt').agg({
+                        'CTOs': 'sum',
+                        'Fibra (m)': 'sum'
+                    }).reset_index()
+                    evolucao = evolucao.sort_values('Data_dt')
+                    
+                    fig_evolucao = go.Figure()
+                    fig_evolucao.add_trace(go.Scatter(
+                        x=evolucao['Data_dt'],
+                        y=evolucao['CTOs'],
+                        mode='lines+markers',
+                        name='CTOs',
+                        line=dict(color='#2196F3', width=3)
+                    ))
+                    fig_evolucao.add_trace(go.Scatter(
+                        x=evolucao['Data_dt'],
+                        y=evolucao['Fibra (m)'],
+                        mode='lines+markers',
+                        name='Fibra (m)',
+                        line=dict(color='#4CAF50', width=3),
+                        yaxis='y2'
+                    ))
+                    fig_evolucao.update_layout(
+                        title='Evolução de Materiais no Período',
+                        xaxis_title='Data',
+                        yaxis_title='CTOs',
+                        yaxis2=dict(title='Fibra (m)', overlaying='y', side='right'),
+                        height=400
+                    )
+                    st.plotly_chart(fig_evolucao, use_container_width=True, key="chart_evolucao")
         else:
             st.info("ℹ️ Nenhuma tarefa com materiais registrados no período selecionado.")
 
