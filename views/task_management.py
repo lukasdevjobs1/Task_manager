@@ -281,10 +281,21 @@ def render_task_management_page():
                             col_a, col_b = st.columns(2)
                             with col_a:
                                 if st.form_submit_button("✅ Sim, excluir", use_container_width=True):
-                                    db.client.table('task_assignments').delete().eq('id', task['id']).execute()
-                                    st.session_state.pop(f'deleting_{task["id"]}')
-                                    st.success("Tarefa excluída!")
-                                    st.rerun()
+                                    try:
+                                        photos_to_del = db.get_assignment_photos(task["id"])
+                                        for p in photos_to_del:
+                                            db.client.table("assignment_photos").delete().eq("id", p["id"]).execute()
+
+                                        db.client.table("task_assignments").delete()\
+                                            .eq("id", task["id"])\
+                                            .eq("company_id", user["company_id"])\
+                                            .execute()
+
+                                        st.session_state.pop(f'deleting_{task["id"]}')
+                                        st.success("Tarefa excluída!")
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"Erro ao excluir tarefa: {e}")
                             
                             with col_b:
                                 if st.form_submit_button("❌ Cancelar", use_container_width=True):
