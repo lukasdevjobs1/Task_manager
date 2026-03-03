@@ -11,7 +11,11 @@ import plotly.graph_objects as go
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from auth.authentication import re
+import re
+
+from auth.authentication import require_login, get_current_user, is_admin
+from database.supabase_only_connection import db
+
 
 def extract_materials_from_text(materials_text):
     """Extrai métricas de materiais do campo materials (texto livre)."""
@@ -32,8 +36,7 @@ def extract_materials_from_text(materials_text):
     cabo_matches = re.findall(r'(\d+)\s*(?:m|metro)', text)
     cabo_metros = sum(int(x) for x in cabo_matches) if cabo_matches else 0
     
-    return {'ctos': ctos, 'ceos': ceos, 'cabo_metros': cabo_metros}quire_login, get_current_user, is_admin
-from database.supabase_only_connection import db
+    return {'ctos': ctos, 'ceos': ceos, 'cabo_metros': cabo_metros}
 
 
 
