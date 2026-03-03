@@ -70,22 +70,28 @@ def configure_page():
     st.markdown(
         """
         <style>
-        /* ── Fontes ────────────────────────────────────────────────────── */
+        /* ── Fontes (texto + ícones externos) ────────────────────────────── */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        /* Fontes de ícones: Streamlit/Base Web usam Material Symbols para setas, dropdowns, etc. */
         @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap');
         @import url('https://fonts.googleapis.com/css2?family=Material+Icons&display=swap');
 
-        html, body, [class*="css"], .stMarkdown, .stText, p, span, label {
+        /* Inter só em elementos de texto; não em span genérico para não quebrar ícones (ligaduras) */
+        html, body, [class*="css"], .stMarkdown, .stText, p, label,
+        .stMarkdown span, .stMarkdown p, .stText span {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
         }
 
-        /* Restaurar Material Icons/Symbols nos ícones do Streamlit (evita mostrar arrow_drop_down, arrow_right como texto) */
+        /* Ícones: fontes externas para renderizar ligaduras (arrow_drop_down, arrow_right, etc.) */
         .material-symbols-outlined,
         .material-icons,
+        .material-symbols-rounded,
         [class*="material-symbols"],
         [class*="material-icons"],
-        span[data-icon] {
-            font-family: 'Material Icons', 'Material Symbols Outlined', sans-serif !important;
+        span[data-icon],
+        [data-baseweb="select"] span {
+            font-family: 'Material Symbols Outlined', 'Material Symbols Rounded', 'Material Icons', sans-serif !important;
         }
 
         /* ── Ocultar sidebar e controles padrão ────────────────────────── */
