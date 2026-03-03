@@ -317,6 +317,37 @@ class SupabaseDatabase:
         except Exception as e:
             return False, f"Erro ao atualizar materiais: {str(e)}"
     
+    def update_task_isp_data(self, assignment_id: int, isp_data: dict) -> tuple[bool, str]:
+        """Atualiza dados técnicos ISP da tarefa"""
+        try:
+            update_data = {
+                'updated_at': datetime.utcnow().isoformat()
+            }
+            
+            # Adiciona campos ISP se fornecidos
+            if 'abertura_fechamento_cx_emenda' in isp_data:
+                update_data['abertura_fechamento_cx_emenda'] = isp_data['abertura_fechamento_cx_emenda']
+            if 'abertura_fechamento_cto' in isp_data:
+                update_data['abertura_fechamento_cto'] = isp_data['abertura_fechamento_cto']
+            if 'abertura_fechamento_rozeta' in isp_data:
+                update_data['abertura_fechamento_rozeta'] = isp_data['abertura_fechamento_rozeta']
+            if 'quantidade_cto' in isp_data:
+                update_data['quantidade_cto'] = isp_data['quantidade_cto']
+            if 'quantidade_cx_emenda' in isp_data:
+                update_data['quantidade_cx_emenda'] = isp_data['quantidade_cx_emenda']
+            if 'fibra_lancada' in isp_data:
+                update_data['fibra_lancada'] = isp_data['fibra_lancada']
+            if 'observations' in isp_data:
+                update_data['observations'] = isp_data['observations']
+            
+            result = self.client.table('task_assignments').update(update_data).eq('id', assignment_id).execute()
+            
+            if result.data:
+                return True, "Dados técnicos atualizados com sucesso!"
+            return False, "Tarefa não encontrada."
+        except Exception as e:
+            return False, f"Erro ao atualizar dados técnicos: {str(e)}"
+    
     # === NOTIFICAÇÕES ===
     def create_notification(self, user_id: int, company_id: int, type: str, title: str, message: str = None, reference_id: int = None) -> bool:
         """Cria notificação"""

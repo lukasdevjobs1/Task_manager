@@ -11,7 +11,28 @@ import plotly.graph_objects as go
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from auth.authentication import require_login, get_current_user, is_admin
+from auth.authentication import re
+
+def extract_materials_from_text(materials_text):
+    """Extrai métricas de materiais do campo materials (texto livre)."""
+    if not materials_text:
+        return {'ctos': 0, 'ceos': 0, 'cabo_metros': 0}
+    
+    text = str(materials_text).lower()
+    
+    # CTOs
+    cto_matches = re.findall(r'(\d+)\s*(?:cto|cts)', text)
+    ctos = sum(int(x) for x in cto_matches) if cto_matches else 0
+    
+    # CEOs  
+    ceo_matches = re.findall(r'(\d+)\s*(?:ceo|ces)', text)
+    ceos = sum(int(x) for x in ceo_matches) if ceo_matches else 0
+    
+    # Cabo em metros
+    cabo_matches = re.findall(r'(\d+)\s*(?:m|metro)', text)
+    cabo_metros = sum(int(x) for x in cabo_matches) if cabo_matches else 0
+    
+    return {'ctos': ctos, 'ceos': ceos, 'cabo_metros': cabo_metros}quire_login, get_current_user, is_admin
 from database.supabase_only_connection import db
 
 
@@ -181,6 +202,23 @@ def render_dashboard_page():
     em_andamento = len([a for a in all_assignments if a.get('status') == 'em_andamento'])
     pendentes = len([a for a in all_assignments if a.get('status') == 'pendente'])
 
+    # Calcular materiais dos campos estruturados E do campo materials (texto)
+    total_ctos = 0
+    total_cx_emenda = 0 
+    total_fibra = 0
+    
+    for a in all_assignments:
+        # Campos estruturados
+        total_ctos += a.get('quantidade_cto') or 0
+        total_cx_emenda += a.get('quantidade_cx_emenda') or 0
+        total_fibra += float(a.get('fibra_lancada') or 0)
+        
+        # Campo materials (texto livre)
+        if a.get('materials'):
+            materials_data = extract_materials_from_text(a['materials'])
+            total_ctos += materials_data['ctos']
+            total_fibra += materials_data['cabo_metros']
+
     kpi1, kpi2, kpi3, kpi4 = st.columns(4)
     with kpi1:
         st.metric("Total Tarefas", total)
@@ -193,14 +231,11 @@ def render_dashboard_page():
 
     kpi_isp1, kpi_isp2, kpi_isp3 = st.columns(3)
     with kpi_isp1:
-        st.metric("Total CTOs", sum(a.get('quantidade_cto') or 0 for a in all_assignments))
+        st.metric("Total CTOs", int(total_ctos))
     with kpi_isp2:
-        st.metric("Total Cx Emenda", sum(a.get('quantidade_cx_emenda') or 0 for a in all_assignments))
+        st.metric("Total Cx Emenda", int(total_cx_emenda))
     with kpi_isp3:
-        st.metric(
-            "Fibra Lançada (m)",
-            f"{sum(float(a.get('fibra_lancada') or 0) for a in all_assignments):.0f}"
-        )
+        st.metric("Fibra Lançada (m)", f"{total_fibra:.0f}")
 
     # ── Tabs ───────────────────────────────────────────────────────────────
     tab_geral, tab_empresa, tab_desempenho = st.tabs(
@@ -352,9 +387,18 @@ def render_dashboard_page():
                 emp = a.get('empresa_nome') or 'Não definida'
                 if emp not in emp_metrics:
                     emp_metrics[emp] = {'CTOs': 0, 'Cx Emenda': 0, 'Fibra (m)': 0.0, 'Tarefas': 0}
+                
+                # Campos estruturados
                 emp_metrics[emp]['CTOs'] += a.get('quantidade_cto') or 0
                 emp_metrics[emp]['Cx Emenda'] += a.get('quantidade_cx_emenda') or 0
                 emp_metrics[emp]['Fibra (m)'] += float(a.get('fibra_lancada') or 0)
+                
+                # Campo materials (texto livre)
+                if a.get('materials'):
+                    materials_data = extract_materials_from_text(a['materials'])
+                    emp_metrics[emp]['CTOs'] += materials_data['ctos']
+                    emp_metrics[emp]['Fibra (m)'] += materials_data['cabo_metros']
+                    
                 emp_metrics[emp]['Tarefas'] += 1
 
             st.subheader("Métricas ISP por Empresa")
@@ -373,9 +417,22 @@ def render_dashboard_page():
             u_tasks = [a for a in all_assignments if a.get('assigned_to') == u['id']]
             completed_count = len([a for a in u_tasks if a.get('status') == 'concluida'])
 
-            user_ctos = sum(a.get('quantidade_cto') or 0 for a in u_tasks)
-            user_cx_emenda = sum(a.get('quantidade_cx_emenda') or 0 for a in u_tasks)
-            user_fibra = sum(float(a.get('fibra_lancada') or 0) for a in u_tasks)
+            # Calcular materiais dos campos estruturados E do campo materials
+            user_ctos = 0
+            user_cx_emenda = 0
+            user_fibra = 0
+            
+            for a in u_tasks:
+                # Campos estruturados
+                user_ctos += a.get('quantidade_cto') or 0
+                user_cx_emenda += a.get('quantidade_cx_emenda') or 0
+                user_fibra += float(a.get('fibra_lancada') or 0)
+                
+                # Campo materials (texto livre)
+                if a.get('materials'):
+                    materials_data = extract_materials_from_text(a['materials'])
+                    user_ctos += materials_data['ctos']
+                    user_fibra += materials_data['cabo_metros']
 
             user_details.append({
                 'Nome': u['full_name'],
@@ -384,8 +441,8 @@ def render_dashboard_page():
                 'Concluídas': completed_count,
                 'Em Andamento': len([a for a in u_tasks if a.get('status') == 'em_andamento']),
                 'Pendentes': len([a for a in u_tasks if a.get('status') == 'pendente']),
-                'Qtd CTO': user_ctos,
-                'Cx Emenda': user_cx_emenda,
+                'Qtd CTO': int(user_ctos),
+                'Cx Emenda': int(user_cx_emenda),
                 'Fibra (m)': round(user_fibra, 2),
             })
 
