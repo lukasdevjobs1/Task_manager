@@ -72,9 +72,20 @@ def configure_page():
         <style>
         /* ── Fontes ────────────────────────────────────────────────────── */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Material+Icons&display=swap');
 
         html, body, [class*="css"], .stMarkdown, .stText, p, span, label {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+        }
+
+        /* Restaurar Material Icons/Symbols nos ícones do Streamlit (evita mostrar arrow_drop_down, arrow_right como texto) */
+        .material-symbols-outlined,
+        .material-icons,
+        [class*="material-symbols"],
+        [class*="material-icons"],
+        span[data-icon] {
+            font-family: 'Material Icons', 'Material Symbols Outlined', sans-serif !important;
         }
 
         /* ── Ocultar sidebar e controles padrão ────────────────────────── */
