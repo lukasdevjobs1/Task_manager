@@ -36,8 +36,13 @@ class SupabaseDatabase:
             user = result.data[0]
             company = user['companies']
             
-            # Verifica se usuário e empresa estão ativos
-            if not user['active'] or not company['active']:
+            # Verifica se usuário está ativo
+            if not user['active']:
+                return None
+
+            # Super admins podem logar mesmo com empresa inativa
+            is_super = user.get('is_super_admin', False)
+            if not is_super and not company['active']:
                 return None
             
             # Verifica senha
