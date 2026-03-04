@@ -205,18 +205,22 @@ def render_dashboard_page():
     em_andamento = len([a for a in all_assignments if a.get('status') == 'em_andamento'])
     pendentes = len([a for a in all_assignments if a.get('status') == 'pendente'])
 
-    # Calcular materiais dos campos estruturados E do campo materials (texto)
+    # Calcular todas as métricas ISP dos campos estruturados E do campo materials (texto)
     total_ctos = 0
-    total_cx_emenda = 0 
+    total_cx_emenda = 0
     total_fibra = 0
-    
+    total_abert_cx_emenda = 0
+    total_abert_cto = 0
+    total_abert_rozeta = 0
+
     for a in all_assignments:
-        # Campos estruturados
         total_ctos += a.get('quantidade_cto') or 0
         total_cx_emenda += a.get('quantidade_cx_emenda') or 0
         total_fibra += float(a.get('fibra_lancada') or 0)
-        
-        # Campo materials (texto livre)
+        total_abert_cx_emenda += a.get('abertura_fechamento_cx_emenda') or 0
+        total_abert_cto += a.get('abertura_fechamento_cto') or 0
+        total_abert_rozeta += a.get('abertura_fechamento_rozeta') or 0
+
         if a.get('materials'):
             materials_data = extract_materials_from_text(a['materials'])
             total_ctos += materials_data['ctos']
@@ -234,11 +238,19 @@ def render_dashboard_page():
 
     kpi_isp1, kpi_isp2, kpi_isp3 = st.columns(3)
     with kpi_isp1:
-        st.metric("Total CTOs", int(total_ctos))
+        st.metric("Qtd CTOs", int(total_ctos))
     with kpi_isp2:
-        st.metric("Total Cx Emenda", int(total_cx_emenda))
+        st.metric("Qtd Cx Emenda", int(total_cx_emenda))
     with kpi_isp3:
         st.metric("Fibra Lançada (m)", f"{total_fibra:.0f}")
+
+    kpi_isp4, kpi_isp5, kpi_isp6 = st.columns(3)
+    with kpi_isp4:
+        st.metric("Abert./Fech. Cx Emenda", int(total_abert_cx_emenda))
+    with kpi_isp5:
+        st.metric("Abert./Fech. CTO", int(total_abert_cto))
+    with kpi_isp6:
+        st.metric("Abert./Fech. Rozeta", int(total_abert_rozeta))
 
     # ── Tabs ───────────────────────────────────────────────────────────────
     tab_geral, tab_empresa, tab_desempenho, tab_materiais = st.tabs(
@@ -389,19 +401,24 @@ def render_dashboard_page():
             for a in all_assignments:
                 emp = a.get('empresa_nome') or 'Não definida'
                 if emp not in emp_metrics:
-                    emp_metrics[emp] = {'CTOs': 0, 'Cx Emenda': 0, 'Fibra (m)': 0.0, 'Tarefas': 0}
-                
-                # Campos estruturados
-                emp_metrics[emp]['CTOs'] += a.get('quantidade_cto') or 0
-                emp_metrics[emp]['Cx Emenda'] += a.get('quantidade_cx_emenda') or 0
+                    emp_metrics[emp] = {
+                        'Tarefas': 0,
+                        'Qtd CTO': 0, 'Qtd Cx Emenda': 0, 'Fibra (m)': 0.0,
+                        'Abert. Cx Emenda': 0, 'Abert. CTO': 0, 'Abert. Rozeta': 0,
+                    }
+
+                emp_metrics[emp]['Qtd CTO'] += a.get('quantidade_cto') or 0
+                emp_metrics[emp]['Qtd Cx Emenda'] += a.get('quantidade_cx_emenda') or 0
                 emp_metrics[emp]['Fibra (m)'] += float(a.get('fibra_lancada') or 0)
-                
-                # Campo materials (texto livre)
+                emp_metrics[emp]['Abert. Cx Emenda'] += a.get('abertura_fechamento_cx_emenda') or 0
+                emp_metrics[emp]['Abert. CTO'] += a.get('abertura_fechamento_cto') or 0
+                emp_metrics[emp]['Abert. Rozeta'] += a.get('abertura_fechamento_rozeta') or 0
+
                 if a.get('materials'):
                     materials_data = extract_materials_from_text(a['materials'])
-                    emp_metrics[emp]['CTOs'] += materials_data['ctos']
+                    emp_metrics[emp]['Qtd CTO'] += materials_data['ctos']
                     emp_metrics[emp]['Fibra (m)'] += materials_data['cabo_metros']
-                    
+
                 emp_metrics[emp]['Tarefas'] += 1
 
             st.subheader("Métricas ISP por Empresa")
@@ -420,18 +437,22 @@ def render_dashboard_page():
             u_tasks = [a for a in all_assignments if a.get('assigned_to') == u['id']]
             completed_count = len([a for a in u_tasks if a.get('status') == 'concluida'])
 
-            # Calcular materiais dos campos estruturados E do campo materials
+            # Calcular todas as métricas ISP por usuário
             user_ctos = 0
             user_cx_emenda = 0
             user_fibra = 0
-            
+            user_abert_cx_emenda = 0
+            user_abert_cto = 0
+            user_abert_rozeta = 0
+
             for a in u_tasks:
-                # Campos estruturados
                 user_ctos += a.get('quantidade_cto') or 0
                 user_cx_emenda += a.get('quantidade_cx_emenda') or 0
                 user_fibra += float(a.get('fibra_lancada') or 0)
-                
-                # Campo materials (texto livre)
+                user_abert_cx_emenda += a.get('abertura_fechamento_cx_emenda') or 0
+                user_abert_cto += a.get('abertura_fechamento_cto') or 0
+                user_abert_rozeta += a.get('abertura_fechamento_rozeta') or 0
+
                 if a.get('materials'):
                     materials_data = extract_materials_from_text(a['materials'])
                     user_ctos += materials_data['ctos']
@@ -445,8 +466,11 @@ def render_dashboard_page():
                 'Em Andamento': len([a for a in u_tasks if a.get('status') == 'em_andamento']),
                 'Pendentes': len([a for a in u_tasks if a.get('status') == 'pendente']),
                 'Qtd CTO': int(user_ctos),
-                'Cx Emenda': int(user_cx_emenda),
+                'Qtd Cx Emenda': int(user_cx_emenda),
                 'Fibra (m)': round(user_fibra, 2),
+                'Abert. Cx Emenda': int(user_abert_cx_emenda),
+                'Abert. CTO': int(user_abert_cto),
+                'Abert. Rozeta': int(user_abert_rozeta),
             })
 
         if user_details:
@@ -541,19 +565,22 @@ def render_dashboard_page():
         # Preparar dados de materiais por tarefa (usando tarefas_filtradas)
         materiais_tarefas = []
         for a in tarefas_filtradas:
-            # Calcular materiais desta tarefa
             task_ctos = a.get('quantidade_cto') or 0
             task_cx_emenda = a.get('quantidade_cx_emenda') or 0
             task_fibra = float(a.get('fibra_lancada') or 0)
-            
-            # Adicionar do campo materials (texto)
+            task_abert_cx_emenda = a.get('abertura_fechamento_cx_emenda') or 0
+            task_abert_cto = a.get('abertura_fechamento_cto') or 0
+            task_abert_rozeta = a.get('abertura_fechamento_rozeta') or 0
+
             if a.get('materials'):
                 mat_data = extract_materials_from_text(a['materials'])
                 task_ctos += mat_data['ctos']
                 task_fibra += mat_data['cabo_metros']
-            
-            # Só adiciona se tiver algum material
-            if task_ctos > 0 or task_cx_emenda > 0 or task_fibra > 0:
+
+            # Só adiciona se tiver alguma métrica preenchida
+            has_data = any([task_ctos, task_cx_emenda, task_fibra,
+                            task_abert_cx_emenda, task_abert_cto, task_abert_rozeta])
+            if has_data:
                 assignee = a.get('assigned_to_user', {})
                 materiais_tarefas.append({
                     'ID': a['id'],
@@ -562,10 +589,12 @@ def render_dashboard_page():
                     'Empresa': a.get('empresa_nome', 'N/A'),
                     'Técnico': assignee.get('full_name', 'N/A') if isinstance(assignee, dict) else 'N/A',
                     'Status': a['status'],
-                    'CTOs': int(task_ctos),
-                    'Cx Emenda': int(task_cx_emenda),
+                    'Qtd CTO': int(task_ctos),
+                    'Qtd Cx Emenda': int(task_cx_emenda),
                     'Fibra (m)': round(task_fibra, 2),
-                    'Materials': a.get('materials', '-')[:50] + '...' if a.get('materials') and len(a.get('materials', '')) > 50 else a.get('materials', '-')
+                    'Abert. Cx Emenda': int(task_abert_cx_emenda),
+                    'Abert. CTO': int(task_abert_cto),
+                    'Abert. Rozeta': int(task_abert_rozeta),
                 })
         
         if materiais_tarefas:
@@ -608,28 +637,41 @@ def render_dashboard_page():
             
             # Totais
             st.markdown("---")
-            col_t1, col_t2, col_t3, col_t4 = st.columns(4)
+            col_t1, col_t2, col_t3 = st.columns(3)
             with col_t1:
                 st.metric("Total de Tarefas", len(df_materiais))
             with col_t2:
-                st.metric("Total CTOs", int(df_materiais['CTOs'].sum()))
+                st.metric("Qtd CTO Total", int(df_materiais['Qtd CTO'].sum()))
             with col_t3:
-                st.metric("Total Cx Emenda", int(df_materiais['Cx Emenda'].sum()))
+                st.metric("Qtd Cx Emenda Total", int(df_materiais['Qtd Cx Emenda'].sum()))
+
+            col_t4, col_t5, col_t6, col_t7 = st.columns(4)
             with col_t4:
-                st.metric("Total Fibra (m)", f"{df_materiais['Fibra (m)'].sum():.0f}")
+                st.metric("Fibra Lançada (m)", f"{df_materiais['Fibra (m)'].sum():.0f}")
+            with col_t5:
+                st.metric("Abert. Cx Emenda", int(df_materiais['Abert. Cx Emenda'].sum()))
+            with col_t6:
+                st.metric("Abert. CTO", int(df_materiais['Abert. CTO'].sum()))
+            with col_t7:
+                st.metric("Abert. Rozeta", int(df_materiais['Abert. Rozeta'].sum()))
             
             # Gráfico de materiais por empresa
             if empresa_mat_filter == "Todas" and len(df_materiais) > 0:
                 st.subheader("📊 Materiais por Empresa")
                 mat_por_emp = df_materiais.groupby('Empresa').agg({
-                    'CTOs': 'sum',
-                    'Cx Emenda': 'sum',
-                    'Fibra (m)': 'sum'
+                    'Qtd CTO': 'sum',
+                    'Qtd Cx Emenda': 'sum',
+                    'Fibra (m)': 'sum',
+                    'Abert. CTO': 'sum',
+                    'Abert. Cx Emenda': 'sum',
+                    'Abert. Rozeta': 'sum',
                 }).reset_index()
                 
                 fig_mat = go.Figure(data=[
-                    go.Bar(name='CTOs', x=mat_por_emp['Empresa'], y=mat_por_emp['CTOs'], marker_color='#2196F3'),
-                    go.Bar(name='Cx Emenda', x=mat_por_emp['Empresa'], y=mat_por_emp['Cx Emenda'], marker_color='#4CAF50'),
+                    go.Bar(name='Qtd CTO', x=mat_por_emp['Empresa'], y=mat_por_emp['Qtd CTO'], marker_color='#2196F3'),
+                    go.Bar(name='Qtd Cx Emenda', x=mat_por_emp['Empresa'], y=mat_por_emp['Qtd Cx Emenda'], marker_color='#4CAF50'),
+                    go.Bar(name='Abert. CTO', x=mat_por_emp['Empresa'], y=mat_por_emp['Abert. CTO'], marker_color='#FF9800'),
+                    go.Bar(name='Abert. Cx Emenda', x=mat_por_emp['Empresa'], y=mat_por_emp['Abert. Cx Emenda'], marker_color='#9C27B0'),
                 ])
                 fig_mat.update_layout(title='Materiais Utilizados por Empresa', barmode='group', height=400)
                 st.plotly_chart(fig_mat, use_container_width=True, key="chart_mat_empresa")
@@ -639,18 +681,26 @@ def render_dashboard_page():
                     st.subheader("📈 Evolução Diária de Materiais")
                     df_materiais['Data_dt'] = pd.to_datetime(df_materiais['Data'], format='%d/%m/%Y')
                     evolucao = df_materiais.groupby('Data_dt').agg({
-                        'CTOs': 'sum',
-                        'Fibra (m)': 'sum'
+                        'Qtd CTO': 'sum',
+                        'Fibra (m)': 'sum',
+                        'Abert. CTO': 'sum',
                     }).reset_index()
                     evolucao = evolucao.sort_values('Data_dt')
-                    
+
                     fig_evolucao = go.Figure()
                     fig_evolucao.add_trace(go.Scatter(
                         x=evolucao['Data_dt'],
-                        y=evolucao['CTOs'],
+                        y=evolucao['Qtd CTO'],
                         mode='lines+markers',
-                        name='CTOs',
+                        name='Qtd CTO',
                         line=dict(color='#2196F3', width=3)
+                    ))
+                    fig_evolucao.add_trace(go.Scatter(
+                        x=evolucao['Data_dt'],
+                        y=evolucao['Abert. CTO'],
+                        mode='lines+markers',
+                        name='Abert. CTO',
+                        line=dict(color='#FF9800', width=3)
                     ))
                     fig_evolucao.add_trace(go.Scatter(
                         x=evolucao['Data_dt'],

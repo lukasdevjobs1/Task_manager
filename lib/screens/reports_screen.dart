@@ -166,9 +166,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
             const SizedBox(height: 28),
 
-            // Top materiais utilizados
-            if (authProvider.user != null)
-              _buildMaterialsSection(context, authProvider.user!.id),
+            // Métricas ISP do período (calculadas das tarefas carregadas)
+            _buildIspMetricsSection(context, periodTasks),
+
 
             const SizedBox(height: 16),
           ],
@@ -426,6 +426,240 @@ class _ReportsScreenState extends State<ReportsScreen> {
             );
           }),
         ),
+      ),
+    );
+  }
+
+  Widget _buildIspMetricsSection(
+      BuildContext context, List<TaskAssignment> tasks) {
+    int qtdCto = 0;
+    int qtdCxEmenda = 0;
+    double fibra = 0;
+    int abertCxEmenda = 0;
+    int abertCto = 0;
+    int abertRozeta = 0;
+
+    for (final t in tasks) {
+      qtdCto += t.quantidadeCto ?? 0;
+      qtdCxEmenda += t.quantidadeCxEmenda ?? 0;
+      fibra += t.fibraLancada ?? 0;
+      abertCxEmenda += t.aberturaFechamentoCxEmenda ?? 0;
+      abertCto += t.aberturaFechamentoCto ?? 0;
+      abertRozeta += t.aberturaFechamentoRozeta ?? 0;
+    }
+
+    final hasData = qtdCto > 0 || qtdCxEmenda > 0 || fibra > 0 ||
+        abertCxEmenda > 0 || abertCto > 0 || abertRozeta > 0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Métricas ISP — $_periodLabel',
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+        const SizedBox(height: 12),
+        if (!hasData)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.cable_outlined, color: AppTheme.textDisabled),
+                const SizedBox(width: 10),
+                Text('Nenhuma métrica no período',
+                    style: TextStyle(color: AppTheme.textSecondary)),
+              ],
+            ),
+          )
+        else ...[
+          // Totais do período
+          Row(
+            children: [
+              Expanded(
+                  child: _buildIspCard('Qtd CTO', '$qtdCto',
+                      Icons.device_hub_outlined, AppTheme.primaryColor)),
+              const SizedBox(width: 10),
+              Expanded(
+                  child: _buildIspCard('Qtd Cx Emenda', '$qtdCxEmenda',
+                      Icons.cable_outlined, AppTheme.inProgressColor)),
+              const SizedBox(width: 10),
+              Expanded(
+                  child: _buildIspCard(
+                      'Fibra (m)',
+                      fibra == fibra.truncateToDouble()
+                          ? '${fibra.toInt()}'
+                          : fibra.toStringAsFixed(1),
+                      Icons.straighten_outlined,
+                      AppTheme.completedColor)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                  child: _buildIspCard('Abert. Cx Emenda', '$abertCxEmenda',
+                      Icons.open_in_full_outlined, Colors.orange)),
+              const SizedBox(width: 10),
+              Expanded(
+                  child: _buildIspCard('Abert. CTO', '$abertCto',
+                      Icons.open_in_full_outlined, Colors.deepOrange)),
+              const SizedBox(width: 10),
+              Expanded(
+                  child: _buildIspCard('Abert. Rozeta', '$abertRozeta',
+                      Icons.radio_button_checked_outlined, Colors.purple)),
+            ],
+          ),
+
+          // Detalhamento por tarefa
+          const SizedBox(height: 16),
+          ..._buildIspTaskList(context, tasks),
+        ],
+      ],
+    );
+  }
+
+  List<Widget> _buildIspTaskList(
+      BuildContext context, List<TaskAssignment> tasks) {
+    final withData = tasks.where((t) {
+      return (t.quantidadeCto ?? 0) > 0 ||
+          (t.quantidadeCxEmenda ?? 0) > 0 ||
+          (t.fibraLancada ?? 0) > 0 ||
+          (t.aberturaFechamentoCxEmenda ?? 0) > 0 ||
+          (t.aberturaFechamentoCto ?? 0) > 0 ||
+          (t.aberturaFechamentoRozeta ?? 0) > 0;
+    }).toList();
+
+    if (withData.isEmpty) return [];
+
+    return [
+      Text(
+        'Por tarefa',
+        style: Theme.of(context)
+            .textTheme
+            .titleSmall
+            ?.copyWith(color: AppTheme.textSecondary),
+      ),
+      const SizedBox(height: 8),
+      ...withData.map((t) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppTheme.backgroundColor,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: AppTheme.getStatusColor(t.status),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      t.title,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 13),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  if ((t.quantidadeCto ?? 0) > 0)
+                    _buildIspChip('Qtd CTO: ${t.quantidadeCto}',
+                        AppTheme.primaryColor),
+                  if ((t.quantidadeCxEmenda ?? 0) > 0)
+                    _buildIspChip('Qtd Cx Emenda: ${t.quantidadeCxEmenda}',
+                        AppTheme.inProgressColor),
+                  if ((t.fibraLancada ?? 0) > 0)
+                    _buildIspChip(
+                        'Fibra: ${t.fibraLancada!.toStringAsFixed(1)}m',
+                        AppTheme.completedColor),
+                  if ((t.aberturaFechamentoCxEmenda ?? 0) > 0)
+                    _buildIspChip(
+                        'Abert. Cx Emenda: ${t.aberturaFechamentoCxEmenda}',
+                        Colors.orange),
+                  if ((t.aberturaFechamentoCto ?? 0) > 0)
+                    _buildIspChip(
+                        'Abert. CTO: ${t.aberturaFechamentoCto}',
+                        Colors.deepOrange),
+                  if ((t.aberturaFechamentoRozeta ?? 0) > 0)
+                    _buildIspChip(
+                        'Abert. Rozeta: ${t.aberturaFechamentoRozeta}',
+                        Colors.purple),
+                ],
+              ),
+            ],
+          ),
+        );
+      }),
+    ];
+  }
+
+  Widget _buildIspChip(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+            fontSize: 11, color: color, fontWeight: FontWeight.w500),
+      ),
+    );
+  }
+
+  Widget _buildIspCard(
+      String label, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+                fontSize: 18, fontWeight: FontWeight.bold, color: color),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+                color: color, fontWeight: FontWeight.w500, fontSize: 10),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
     );
   }
