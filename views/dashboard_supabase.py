@@ -161,14 +161,19 @@ def render_dashboard_page():
     all_assignments_raw = db.get_task_assignments(user["company_id"])
     all_users = db.get_all_users(user["company_id"])
 
+    # Remove tarefas de empresas inativas da base desde o início
+    empresas_ativas_result = db.client.table('companies').select('name').eq('active', True).execute()
+    empresas_ativas = {e['name'] for e in (empresas_ativas_result.data or [])}
+    all_assignments_raw = [
+        a for a in all_assignments_raw
+        if not a.get('empresa_nome') or a.get('empresa_nome') in empresas_ativas
+    ]
+
     # ── Filtros globais ────────────────────────────────────────────────────
     col_f1, col_f2 = st.columns(2)
     with col_f1:
-        empresas_ativas_result = db.client.table('companies').select('name').eq('active', True).execute()
-        empresas_ativas = {e['name'] for e in (empresas_ativas_result.data or [])}
         empresas_set = sorted({
-            a.get('empresa_nome') for a in all_assignments_raw
-            if a.get('empresa_nome') and a.get('empresa_nome') in empresas_ativas
+            a.get('empresa_nome') for a in all_assignments_raw if a.get('empresa_nome')
         })
         empresa_filter = st.selectbox(
             "Empresa", ["Todas"] + list(empresas_set), key="dash_filter_empresa"
