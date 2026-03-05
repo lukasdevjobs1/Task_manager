@@ -311,6 +311,15 @@ class SupabaseDatabase:
         except Exception as e:
             return False, f"Erro ao atualizar status: {str(e)}"
     
+    def get_task_materials(self, assignment_id: int) -> list:
+        """Retorna materiais da tabela task_materials para uma tarefa"""
+        try:
+            result = self.client.table('task_materials').select('*').eq('assignment_id', assignment_id).execute()
+            return result.data or []
+        except Exception as e:
+            print(f"Erro ao buscar materiais: {e}")
+            return []
+
     def update_task_materials(self, assignment_id: int, materials: str) -> tuple[bool, str]:
         """Atualiza materiais da tarefa"""
         try:

@@ -106,6 +106,21 @@ def show_completed_tasks_manager():
                     tc6.metric("Abert./Fech. Rozeta", abert_rozeta)
 
             with col2:
+                # Materiais da tabela task_materials
+                materiais = db.get_task_materials(task["id"])
+                if materiais:
+                    st.write(f"**Materiais ({len(materiais)}):**")
+                    for m in materiais:
+                        qty = m.get("quantity") or 1
+                        unit = m.get("unit") or "un"
+                        name = m.get("material_name") or "—"
+                        qty_fmt = int(qty) if float(qty) == int(qty) else qty
+                        st.write(f"• {qty_fmt} {unit} — {name}")
+                elif task.get("materials"):
+                    st.write("**Materiais:**")
+                    st.text(task["materials"])
+
+                # Fotos
                 photos = db.get_assignment_photos(task["id"])
                 if photos:
                     st.write(f"**Fotos ({len(photos)}):**")
