@@ -258,46 +258,58 @@ class SupabaseService {
     String filePath,
     List<int> fileBytes,
   ) async {
-    try {
-      final fileName = 'task_${taskId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final originalName = filePath.split('/').last;
-      final fileSize = fileBytes.length;
+    final originalName = filePath.split(RegExp(r'[/\\]')).last;
+    final ext = originalName.contains('.')
+        ? originalName.split('.').last.toLowerCase()
+        : 'jpg';
+    final contentType = switch (ext) {
+      'png' => 'image/png',
+      'webp' => 'image/webp',
+      'heic' || 'heif' => 'image/heic',
+      _ => 'image/jpeg',
+    };
+    final fileName =
+        'task_${taskId}_${DateTime.now().millisecondsSinceEpoch}.$ext';
+    final fileSize = fileBytes.length;
 
-      print('Upload: iniciando para task $taskId, arquivo $fileName, ${fileSize} bytes');
+    print('Upload: task=$taskId arquivo=$fileName size=$fileSize contentType=$contentType');
 
-      await _client.storage
-          .from('task-photos')
-          .uploadBinary(
-            fileName,
-            Uint8List.fromList(fileBytes),
-            fileOptions: const FileOptions(contentType: 'image/jpeg'),
-          );
+    // Tenta até 3 vezes com backoff
+    for (int attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await _client.storage
+            .from('task-photos')
+            .uploadBinary(
+              fileName,
+              Uint8List.fromList(fileBytes),
+              fileOptions: FileOptions(contentType: contentType),
+            );
 
-      print('Upload: storage OK');
+        final photoUrl = _client.storage
+            .from('task-photos')
+            .getPublicUrl(fileName);
 
-      final photoUrl = _client.storage
-          .from('task-photos')
-          .getPublicUrl(fileName);
+        await _client.from('assignment_photos').insert({
+          'assignment_id': taskId,
+          'file_path': fileName,
+          'photo_url': photoUrl,
+          'photo_path': fileName,
+          'original_name': originalName,
+          'file_size': fileSize,
+          'uploaded_at': DateTime.now().toIso8601String(),
+        });
 
-      print('Upload: URL gerada $photoUrl');
-
-      await _client.from('assignment_photos').insert({
-        'assignment_id': taskId,
-        'file_path': fileName,
-        'photo_url': photoUrl,
-        'photo_path': fileName,
-        'original_name': originalName,
-        'file_size': fileSize,
-        'uploaded_at': DateTime.now().toIso8601String(),
-      });
-
-      print('Upload: registro no banco OK');
-
-      return photoUrl;
-    } catch (e) {
-      print('ERRO upload foto: $e');
-      return null;
+        print('Upload: OK na tentativa $attempt — $photoUrl');
+        return photoUrl;
+      } catch (e) {
+        print('Upload: ERRO tentativa $attempt/3 — $e');
+        if (attempt < 3) {
+          await Future.delayed(Duration(seconds: attempt * 2));
+        }
+      }
     }
+
+    return null;
   }
   
   // Chat - Enviar mensagem

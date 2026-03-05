@@ -54,8 +54,8 @@ class _TaskExecuteScreenState extends State<TaskExecuteScreen> {
     setState(() => _photos.addAll(photos));
   }
 
-  Future<void> _uploadPhotos() async {
-    if (_photos.isEmpty) return;
+  Future<bool> _uploadPhotos() async {
+    if (_photos.isEmpty) return true;
 
     setState(() {
       _isUploading = true;
@@ -93,7 +93,7 @@ class _TaskExecuteScreenState extends State<TaskExecuteScreen> {
       _uploadStatus = '';
     });
 
-    if (!mounted) return;
+    if (!mounted) return false;
 
     if (failed > 0) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -102,7 +102,10 @@ class _TaskExecuteScreenState extends State<TaskExecuteScreen> {
           backgroundColor: Colors.orange,
         ),
       );
+      return false;
     }
+
+    return true;
   }
 
   // ─── Helper campo numérico ────────────────────────────────────────────────
@@ -126,7 +129,38 @@ class _TaskExecuteScreenState extends State<TaskExecuteScreen> {
     setState(() => _isUploading = true);
 
     // Upload de fotos
-    await _uploadPhotos();
+    final photosOk = await _uploadPhotos();
+
+    if (!mounted) return;
+
+    // Se houver fotos e alguma falhou, perguntar se quer continuar
+    if (!photosOk && _selectedStatus == 'concluida') {
+      final continuar = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Falha no envio de fotos'),
+          content: const Text(
+            'Algumas fotos não foram enviadas.\n\nDeseja finalizar a tarefa mesmo assim?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+              child: const Text('Finalizar mesmo assim'),
+            ),
+          ],
+        ),
+      );
+
+      if (continuar != true) {
+        setState(() => _isUploading = false);
+        return;
+      }
+    }
 
     if (!mounted) return;
 

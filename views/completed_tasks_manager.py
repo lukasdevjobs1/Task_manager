@@ -40,16 +40,24 @@ def show_completed_tasks_manager():
             if (t.get("assigned_to_user") or {}).get("full_name") == collaborator_filter
         ]
 
-    # ── KPIs usando colunas estruturadas (migration 005) ───────────────────
-    total_ctos      = sum(t.get("quantidade_cto") or 0 for t in tasks)
-    total_cx_emenda = sum(t.get("quantidade_cx_emenda") or 0 for t in tasks)
-    total_fibra     = sum(float(t.get("fibra_lancada") or 0) for t in tasks)
+    # ── KPIs usando colunas estruturadas ──────────────────────────────────
+    total_ctos           = sum(t.get("quantidade_cto") or 0 for t in tasks)
+    total_cx_emenda      = sum(t.get("quantidade_cx_emenda") or 0 for t in tasks)
+    total_fibra          = sum(float(t.get("fibra_lancada") or 0) for t in tasks)
+    total_abert_cx       = sum(t.get("abertura_fechamento_cx_emenda") or 0 for t in tasks)
+    total_abert_cto      = sum(t.get("abertura_fechamento_cto") or 0 for t in tasks)
+    total_abert_rozeta   = sum(t.get("abertura_fechamento_rozeta") or 0 for t in tasks)
 
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Total de Tarefas", len(tasks))
-    col2.metric("CTOs", total_ctos)
-    col3.metric("Cx de Emenda", total_cx_emenda)
-    col4.metric("Fibra Lançada (m)", f"{total_fibra:.0f}")
+    col2.metric("Fibra Lançada (m)", f"{total_fibra:.0f}")
+    col3.metric("Qtd CTOs", int(total_ctos))
+    col4.metric("Qtd Cx Emenda", int(total_cx_emenda))
+
+    col5, col6, col7 = st.columns(3)
+    col5.metric("Abert./Fech. Cx Emenda", int(total_abert_cx))
+    col6.metric("Abert./Fech. CTO", int(total_abert_cto))
+    col7.metric("Abert./Fech. Rozeta", int(total_abert_rozeta))
 
     st.divider()
 
@@ -80,15 +88,22 @@ def show_completed_tasks_manager():
                     )
 
                 # Dados técnicos ISP
-                cto  = task.get("quantidade_cto") or 0
-                cx   = task.get("quantidade_cx_emenda") or 0
-                fibra = float(task.get("fibra_lancada") or 0)
-                if cto or cx or fibra:
+                cto          = task.get("quantidade_cto") or 0
+                cx           = task.get("quantidade_cx_emenda") or 0
+                fibra        = float(task.get("fibra_lancada") or 0)
+                abert_cx     = task.get("abertura_fechamento_cx_emenda") or 0
+                abert_cto    = task.get("abertura_fechamento_cto") or 0
+                abert_rozeta = task.get("abertura_fechamento_rozeta") or 0
+                if cto or cx or fibra or abert_cx or abert_cto or abert_rozeta:
                     st.write("**Dados Técnicos:**")
                     tc1, tc2, tc3 = st.columns(3)
-                    tc1.metric("CTOs", cto)
-                    tc2.metric("Cx Emenda", cx)
+                    tc1.metric("Qtd CTOs", cto)
+                    tc2.metric("Qtd Cx Emenda", cx)
                     tc3.metric("Fibra (m)", f"{fibra:.0f}")
+                    tc4, tc5, tc6 = st.columns(3)
+                    tc4.metric("Abert./Fech. Cx Emenda", abert_cx)
+                    tc5.metric("Abert./Fech. CTO", abert_cto)
+                    tc6.metric("Abert./Fech. Rozeta", abert_rozeta)
 
             with col2:
                 photos = db.get_assignment_photos(task["id"])
