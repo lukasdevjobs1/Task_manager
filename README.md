@@ -1,398 +1,237 @@
-## Task Manager ISP
+# Task Manager ISP
 
-Aplicação completa de **gerenciamento de tarefas de campo para provedores de internet (ISP)**, composta por:
+Sistema completo de **gerenciamento de tarefas de campo para provedores de internet (ISP)**, composto por:
 
-- **App mobile Flutter** utilizado pelos técnicos em campo.
-- **Painel Web (Streamlit)** para gestores acompanharem operações.
-- **Backend em Supabase (Postgres, Storage, Realtime)** com scripts de apoio em Python.
-
-Este repositório contém principalmente o **app Flutter (`lib/`)** usado em produção pelos técnicos.
-
----
-
-## Principais funcionalidades
-
-- **Autenticação segura**
-  - Login de técnicos e gestores integrado ao Supabase.
-  - Armazenamento seguro de tokens.
-
-- **Gestão de tarefas de campo**
-  - Criação, atribuição e atualização de tarefas.
-  - Status de tarefa (pendente, em andamento, concluída).
-  - Histórico e detalhes completos de cada atendimento.
-
-- **Modo offline e sincronização**
-  - Uso de `sqflite`/`hive` para cache e trabalho offline.
-  - Sincronização automática quando a conexão volta.
-
-- **Localização e mapas**
-  - Visualização de tarefas no mapa (`google_maps_flutter`).
-  - Geolocalização e geocoding para endereços.
-
-- **Fotos, anexos e assinatura**
-  - Captura de fotos com `camera`/`image_picker`.
-  - Upload para o Storage do Supabase.
-  - Coleta de assinatura do cliente na conclusão.
-
-- **Notificações**
-  - Push notifications via Firebase Cloud Messaging.
-  - Notificações locais para lembretes e atualizações.
-
----
-
-## Novidades recentes
-
-- **Tela de Relatórios aprimorada**
-  - Filtros rápidos por **7, 30 e 90 dias**.
-  - Cartões de resumo com **Total**, **Concluídas**, **Pendentes** e **Em andamento** no período selecionado.
-  - Gráfico de **distribuição de status** (pizza) destacando proporções de tarefas concluídas e em andamento.
-  - Gráfico de **tarefas concluídas por dia** nos últimos 7 dias.
-  - Interface em **tema escuro**, otimizada para uso em campo.
-
-- **Indicadores visuais no app**
-  - Aba de **Relatórios** destacada na bottom navigation quando ativa.
-  - **Badge de notificações** na aba de Perfil, exibindo pendências/alertas recentes.
+- **App Mobile Flutter** — utilizado pelos técnicos em campo
+- **Painel Web (Streamlit)** — para gestores acompanharem operações em tempo real
+- **Backend Supabase** — Postgres, Storage e Realtime
 
 ---
 
 ## Capturas de tela
-### Tela em funcionamento
 
-![App em funcionamento](assets/images/Captura%20de%20tela%202026-03-01%20153218.png)
+### App Mobile
 
----
+| Home / Dashboard | Lista de Tarefas | Executar Tarefa |
+|:---:|:---:|:---:|
+| ![Home](assets/images/2026-03-04%20at%2013.47.06.jpeg) | ![Tarefas](assets/images/2026-03-04%20at%2019.38.10.jpeg) | ![Executar](assets/images/2026-03-05%20at%2000.45.21.jpeg) |
 
-## Stack técnica (mobile)
+### Painel Web
 
-- **Flutter 3 / Dart (null-safe)**
-- Gerência de estado com `provider`
-- Navegação com `go_router`
-- Backend com `supabase_flutter` + `dio`
-- Offline com `sqflite`, `hive`, `hive_flutter`
-- Notificações com `firebase_core`, `firebase_messaging`, `flutter_local_notifications`
-- Mapas com `google_maps_flutter`, `geolocator`, `geocoding`
-- Gráficos com `fl_chart`
+![Dashboard Web](assets/images/Captura%20de%20tela%202026-03-01%20153218.png)
 
 ---
 
-## Como executar o app
+## Funcionalidades
 
-1. **Instalar dependências**
+### App Mobile (Flutter)
 
-   ```bash
-   flutter pub get
-   ```
+- **Autenticação segura**
+  - Login com usuário/senha integrado ao Supabase
+  - Armazenamento seguro de credenciais com `FlutterSecureStorage`
 
-2. **Configurar variáveis de ambiente**
-   - Crie um arquivo `.env` (ou equivalente) com:
-     - URL e chave do Supabase.
-     - Configurações do Firebase (mensageria).
-   - Nunca versione segredos neste repositório.
+- **Gestão de tarefas de campo**
+  - Listagem com abas: Todas / Pendentes / Em Andamento / Concluídas
+  - Detalhes completos da OS com endereço, descrição e prioridade
+  - Atualização de status: pendente → em andamento → concluída
 
-3. **Rodar o app**
-   ```bash
-   flutter run
-   ```
+- **Execução de tarefa com dados técnicos ISP**
+  - Registro de: Abertura/Fechamento de Cx Emenda, CTO e Rozeta
+  - Quantidade de CTOs e Caixas de Emenda instaladas
+  - Metragem de fibra lançada
+  - Upload de fotos com detecção automática de formato (JPG, PNG, WebP, HEIC)
+  - Retry automático de upload (3 tentativas com backoff)
+  - Bloqueio de finalização se o upload de fotos falhar, com diálogo de confirmação
+
+- **Materiais utilizados**
+  - Registro de materiais por tarefa (nome, quantidade, unidade)
+  - Histórico de materiais no perfil e relatórios
+
+- **Mapas e localização**
+  - Abertura direta no Google Maps a partir do endereço ou coordenadas GPS
+  - Integração com `geolocator` e `geocoding`
+
+- **Relatórios**
+  - Filtros por 7, 30 e 90 dias
+  - Gráfico de distribuição de status (pizza)
+  - Gráfico de tarefas concluídas por dia (barras — últimos 7 dias)
+  - Resumo de materiais utilizados no período
+
+- **Notificações**
+  - Push via Firebase Cloud Messaging
+  - Notificações locais com badge na navegação
+
+- **Modo offline**
+  - Cache com `Hive` para uso sem conexão
+  - Sincronização automática ao reconectar
+
+- **Chat**
+  - Comunicação em tempo real entre técnico e gestor via Supabase Realtime
 
 ---
 
-## Próximos passos sugeridos
+### Painel Web (Streamlit)
 
-- Documentar em mais detalhes o **modelo de dados** (tabelas do Supabase e regras de RLS).
-- Adicionar mais capturas de tela (telas de tarefas, detalhes, mapa, fluxo de conclusão).
-- Incluir uma seção de **changelog** com as próximas versões do app.
+- **Dashboard interativo**
+  - KPIs: total de tarefas, concluídas, em andamento, pendentes
+  - Métricas ISP agregadas: Qtd CTOs, Qtd Cx Emenda, Fibra Lançada (m), Abert./Fech. Cx Emenda, Abert./Fech. CTO, Abert./Fech. Rozeta
+  - Filtro por empresa (apenas empresas ativas) e período
+  - Gráficos interativos por empresa e por técnico (Plotly)
+  - Aba de desempenho por técnico e aba de materiais
 
+- **Tarefas Concluídas**
+  - Listagem com filtro por data e colaborador
+  - 7 métricas ISP no topo (quantidade + abertura/fechamento)
+  - Detalhes de cada tarefa: dados técnicos, materiais da tabela `task_materials`, fotos
 
-## 🛠️ Tecnologias Utilizadas
+- **Gerenciamento de tarefas**
+  - Criação e atribuição de tarefas
+  - Caixa da empresa (tarefas sem técnico atribuído)
+  - Visualização e reatribuição de tarefas
 
-### Core
+- **Multi-empresa com grupos**
+  - Gestores veem apenas empresas ativas do seu grupo
+  - Empresas inativas não interferem nas métricas
 
-- **Flutter SDK** 3.0+
-- **Dart** 3.0+
+- **Administração (Super Admin)**
+  - Gestão de empresas e usuários
+  - Ativação/desativação de contas
 
-### Backend & Database
+---
 
-- **Supabase Flutter** - Banco de dados e autenticação
-- **PostgreSQL** - Banco relacional via Supabase
+## Stack técnica
 
-### State Management
+### Mobile
+| Camada | Tecnologia |
+|---|---|
+| Framework | Flutter 3 / Dart (null-safe) |
+| Estado | Provider |
+| Navegação | go_router |
+| Backend | supabase_flutter |
+| Offline | Hive + sqflite |
+| Notificações | Firebase Messaging + flutter_local_notifications |
+| Mapas | google_maps_flutter + geolocator + geocoding |
+| Gráficos | fl_chart |
+| Câmera | camera + image_picker |
+| HTTP | dio |
 
-- **Provider** - Gerenciamento de estado reativo
+### Web / Backend
+| Camada | Tecnologia |
+|---|---|
+| Painel web | Python + Streamlit |
+| Banco de dados | Supabase (PostgreSQL) |
+| Storage | Supabase Storage |
+| Realtime | Supabase Realtime |
+| Gráficos web | Plotly |
 
-### Navigation
+---
 
-- **GoRouter** - Roteamento declarativo
-
-### Storage
-
-- **Hive** - Cache local para modo offline
-- **FlutterSecureStorage** - Armazenamento seguro de credenciais
-- **SharedPreferences** - Preferências do usuário
-
-### UI/UX
-
-- **Google Fonts** - Tipografia profissional (Inter)
-- **FL Chart** - Gráficos e visualizações
-- **Shimmer** - Loading skeletons
-- **CachedNetworkImage** - Cache de imagens
-
-### Features
-
-- **Camera** - Captura de fotos
-- **ImagePicker** - Seleção de imagens
-- **GoogleMapsFlutter** - Mapas e localização
-- **Geolocator** - Geolocalização
-- **FirebaseMessaging** - Push notifications
-- **Connectivity Plus** - Verificação de conectividade
-
-## 📁 Estrutura do Projeto
+## Modelo de dados principal
 
 ```
-flutter_task_manager/
-├── lib/
-│   ├── config/
-│   │   ├── theme.dart              # Tema e cores
-│   │   └── routes.dart             # Configuração de rotas
-│   ├── models/
-│   │   ├── user.dart               # Modelo de usuário
-│   │   ├── task_assignment.dart    # Modelo de tarefa
-│   │   ├── notification.dart       # Modelo de notificação
-│   │   └── chat_message.dart       # Modelo de mensagem
-│   ├── providers/
-│   │   ├── auth_provider.dart      # Estado de autenticação
-│   │   ├── task_provider.dart      # Estado de tarefas
-│   │   ├── notification_provider.dart
-│   │   ├── theme_provider.dart
-│   │   └── offline_provider.dart
-│   ├── services/
-│   │   ├── supabase_service.dart   # Integração Supabase
-│   │   ├── storage_service.dart    # Armazenamento local
-│   │   ├── notification_service.dart
-│   │   └── offline_service.dart
-│   ├── screens/
-│   │   ├── login_screen.dart
-│   │   ├── home_screen.dart
-│   │   ├── task_detail_screen.dart
-│   │   ├── task_execute_screen.dart
-│   │   ├── notifications_screen.dart
-│   │   ├── profile_screen.dart
-│   │   ├── completed_tasks_screen.dart
-│   │   ├── chat_screen.dart
-│   │   └── reports_screen.dart
-│   ├── widgets/
-│   │   ├── task_card.dart
-│   │   └── stats_card.dart
-│   └── main.dart
-├── android/
-├── ios/
-└── pubspec.yaml
+companies         → empresas (multi-tenant)
+users             → técnicos e gestores por empresa
+task_assignments  → OSs com dados técnicos ISP, status, fotos
+task_materials    → materiais utilizados por tarefa
+assignment_photos → fotos vinculadas às OSs
+notifications     → notificações push
+chat_messages     → mensagens técnico ↔ gestor
 ```
 
-##  Como Executar
+Views Supabase:
+- `vw_technician_materials_summary` — resumo de materiais por técnico/mês
+- `vw_technician_performance` — tarefas + materiais para cálculo de bonificação
 
-### Pré-requisitos
+---
+
+## Como executar
+
+### App Mobile
 
 ```bash
-# Flutter SDK instalado
-flutter --version  # Deve ser 3.0+
-
-# Dependências do sistema
-- Android Studio (para Android)
-- Xcode (para iOS - apenas macOS)
-- Node.js (para Firebase)
-```
-
-### Instalação
-
-1. **Instalar dependências**
-
-```bash
-cd /app/flutter_task_manager
+# Instalar dependências
 flutter pub get
-```
 
-2. **Configurar Firebase** (para push notifications)
+# Rodar em debug
+flutter run
 
-```bash
-# Baixar google-services.json do Firebase Console
-# Colocar em: android/app/google-services.json
-
-# Para iOS, baixar GoogleService-Info.plist
-# Colocar em: ios/Runner/GoogleService-Info.plist
-```
-
-3. **Configurar Google Maps API Key**
-
-```bash
-# Android: android/app/src/main/AndroidManifest.xml
-<meta-data
-    android:name="com.google.android.geo.API_KEY"
-    android:value="SUA_API_KEY_AQUI"/>
-
-# iOS: ios/Runner/AppDelegate.swift
-GMSServices.provideAPIKey("SUA_API_KEY_AQUI")
-```
-
-### Executar no Desenvolvimento
-
-**Android:**
-
-```bash
-flutter run -d android
-```
-
-**iOS:**
-
-```bash
-flutter run -d ios
-```
-
-**Web (teste):**
-
-```bash
-flutter run -d chrome
-```
-
-### Build para Produção
-
-**Android APK:**
-
-```bash
+# Build release APK
 flutter build apk --release
-# APK gerado em: build/app/outputs/flutter-apk/app-release.apk
+# APK: build/app/outputs/flutter-apk/app-release.apk
 ```
 
-**Android App Bundle (Google Play):**
+### Painel Web
 
 ```bash
-flutter build appbundle --release
-# AAB gerado em: build/app/outputs/bundle/release/app-release.aab
+# Instalar dependências Python
+pip install -r requirements.txt
+
+# Rodar localmente
+streamlit run app.py
 ```
 
-**iOS:**
+O painel web também está hospedado no **Streamlit Cloud** com deploy automático via push no `main`.
 
-```bash
-flutter build ios --release
-# Depois, abrir no Xcode para assinar e fazer upload
-```
+---
 
-##  Configuração
+## Configuração
 
-### Credenciais Supabase
+### Supabase (Mobile)
 
-As credenciais já estão configuradas em `lib/main.dart`:
-
+Configure em `lib/main.dart`:
 ```dart
 await Supabase.initialize(
-  url: 'https://qweqxsyesdgfqwe.supabase.co',
-  anonKey: 'sua_chave_aqui',
+  url: 'SUA_URL_SUPABASE',
+  anonKey: 'SUA_ANON_KEY',
 );
 ```
 
-### Temas
+### Firebase (Push Notifications)
 
-Para alterar as cores, edite `lib/config/theme.dart`:
+- Android: `android/app/google-services.json`
+- iOS: `ios/Runner/GoogleService-Info.plist`
 
-```dart
-static const Color primaryColor = Color(0xFF1a73e8); // Azul profissional
+### Migrações Supabase
+
+Aplique os arquivos em `migrations/` no SQL Editor do Supabase:
+- `001_*` — estrutura base
+- `002_*` — multi-tenant
+- `003_task_materials.sql` — tabela de materiais e views de bonificação
+
+---
+
+## Estrutura do projeto
+
+```
+task_manager/
+├── lib/                        # App Flutter
+│   ├── config/                 # Tema e rotas
+│   ├── models/                 # TaskAssignment, User, TaskMaterial...
+│   ├── providers/              # Auth, Task, Notification, Offline
+│   ├── screens/                # Telas do app
+│   ├── services/               # SupabaseService (upload, API)
+│   └── widgets/                # Componentes reutilizáveis
+├── views/                      # Painel web Streamlit
+│   ├── dashboard_supabase.py   # Dashboard principal
+│   ├── completed_tasks_manager.py
+│   ├── task_management.py
+│   └── ...
+├── database/                   # Conexão e queries Supabase (web)
+├── migrations/                 # SQLs para aplicar no Supabase
+├── assets/
+│   └── images/                 # Screenshots e imagens do README
+└── app.py                      # Entrada do painel web
 ```
 
-## Telas do App
-
-1. **Login** - Autenticação
-2. **Home** - Dashboard com lista de tarefas e estatísticas
-3. **Detalhes da Tarefa** - Informações completas, mapa, fotos
-4. **Executar Tarefa** - Atualizar status, tirar fotos, observações
-5. **Notificações** - Lista de notificações com badges
-6. **Perfil** - Informações do usuário e configurações
-7. **Chat** - Comunicação com gerente
-8. **Relatórios** - Estatísticas e gráficos
-9. **Tarefas Concluídas** - Histórico
-
-## Design System
-
-### Cores Principais
-
-- **Primary**: `#1a73e8` (Azul profissional)
-- **Secondary**: `#34A853` (Verde sucesso)
-- **Error**: `#EA4335` (Vermelho)
-- **Warning**: `#FBBC04` (Amarelo)
-
-### Status
-
-- **Pendente**: Amarelo
-- **Em Andamento**: Azul
-- **Concluída**: Verde
-
-### Tipografia
-
-- **Fonte**: Inter (Google Fonts)
-- **Estilo**: Profissional e limpo
+---
 
 ## Segurança
 
-- ✅ Credenciais armazenadas com **FlutterSecureStorage**
-- ✅ Tokens JWT para sessões
-- ✅ Comunicação HTTPS com Supabase
-- ✅ Validação de dados no cliente e servidor
-- ✅ Upload seguro de fotos
+- Credenciais armazenadas com `FlutterSecureStorage`
+- RLS (Row Level Security) ativo em todas as tabelas do Supabase
+- Políticas por empresa (multi-tenant isolado)
+- Comunicação exclusivamente via HTTPS
 
-##  Performance
+---
 
-- ✅ Cache de imagens com **CachedNetworkImage**
-- ✅ Cache local com **Hive** para modo offline
-- ✅ Lazy loading de listas
-- ✅ Otimização de builds
-- ✅ Sincronização inteligente
-
-## Debug
-
-```bash
-# Verificar problemas
-flutter doctor
-
-# Logs em tempo real
-flutter logs
-
-# Limpar cache
-flutter clean && flutter pub get
-```
-
-## Deploy
-
-### Android (Google Play)
-
-1. Criar keystore para assinatura
-2. Build do App Bundle: `flutter build appbundle`
-3. Upload no Google Play Console
-
-### iOS (App Store)
-
-1. Configurar certificados no Xcode
-2. Build: `flutter build ios`
-3. Archive e upload via Xcode
-
-## Credenciais de Teste
-
-Use as credenciais existentes no sistema:
-
-- **Usuário**: 'seu_user'
-- **Senha**: (conforme cadastrado no sistema)
-
-## Integração com Backend
-
-O app se conecta diretamente ao Supabase (PostgreSQL):
-
-- **Tabelas**: `users`, `task_assignments`, `assignment_photos`, `notifications`, `chat_messages`
-- **Storage**: Bucket `task-photos`
-- **Real-time**: Subscriptions para updates automáticos
-
-## 📞 Suporte
-
-Para dúvidas ou problemas:
-
-1. Verificar documentação do Flutter
-2. Verificar logs: `flutter logs`
-3. Verificar conexão com Supabase
-
-**App Flutter Task Manager ISP v1.0** - Produtividade profissional no campo!
+**Task Manager ISP v1.0** — Gestão de campo completa para provedores de internet.
