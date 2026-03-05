@@ -164,8 +164,11 @@ def render_dashboard_page():
     # ── Filtros globais ────────────────────────────────────────────────────
     col_f1, col_f2 = st.columns(2)
     with col_f1:
+        empresas_ativas_result = db.client.table('companies').select('name').eq('active', True).execute()
+        empresas_ativas = {e['name'] for e in (empresas_ativas_result.data or [])}
         empresas_set = sorted({
-            a.get('empresa_nome') for a in all_assignments_raw if a.get('empresa_nome')
+            a.get('empresa_nome') for a in all_assignments_raw
+            if a.get('empresa_nome') and a.get('empresa_nome') in empresas_ativas
         })
         empresa_filter = st.selectbox(
             "Empresa", ["Todas"] + list(empresas_set), key="dash_filter_empresa"
