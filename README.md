@@ -12,15 +12,15 @@ Sistema completo de **gerenciamento de tarefas de campo para provedores de inter
 
 ### App Mobile
 
-| Home / Dashboard | Lista de Tarefas | Executar Tarefa |
+| Perfil / Métricas | Lista de Materiais utilizados | Home / Dashboard |
 |:---:|:---:|:---:|
 | ![Home](assets/images/2026-03-04%20at%2013.47.06.jpeg) | ![Tarefas](assets/images/2026-03-04%20at%2019.38.10.jpeg) | ![Executar](assets/images/2026-03-05%20at%2000.45.21.jpeg) |
 
-| Perfil / Métricas |
+| Gerenciamento de  Tarefas |
 |:---:|
 | ![Perfil](assets/images/2026-03-05%20at%2000.45.52.jpeg) |
 
-### Painel Web
+### Dashboard Mobile
 
 ![Dashboard Web](assets/images/Captura%20de%20tela%202026-03-01%20153218.png)
 
