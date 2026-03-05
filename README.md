@@ -194,14 +194,7 @@ await Supabase.initialize(
 
 - Android: `android/app/google-services.json`
 - iOS: `ios/Runner/GoogleService-Info.plist`
-
-### Migrações Supabase
-
-Aplique os arquivos em `migrations/` no SQL Editor do Supabase:
-- `001_*` — estrutura base
-- `002_*` — multi-tenant
-- `003_task_materials.sql` — tabela de materiais e views de bonificação
-
+  
 ---
 
 ## Estrutura do projeto
