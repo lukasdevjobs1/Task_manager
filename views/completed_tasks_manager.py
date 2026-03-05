@@ -4,6 +4,13 @@ from auth.authentication import require_login, get_current_user
 from datetime import datetime
 
 
+def _fmt_fibra(metros: float) -> str:
+    if metros >= 1000:
+        km = metros / 1000
+        return f"{km:.0f} km" if km == int(km) else f"{km:.2f} km"
+    return f"{metros:.0f} m"
+
+
 def show_completed_tasks_manager():
     require_login()
     user = get_current_user()
@@ -50,7 +57,7 @@ def show_completed_tasks_manager():
 
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Total de Tarefas", len(tasks))
-    col2.metric("Fibra Lançada (m)", f"{total_fibra:.0f}")
+    col2.metric("Fibra Lançada", _fmt_fibra(total_fibra))
     col3.metric("Qtd CTOs", int(total_ctos))
     col4.metric("Qtd Cx Emenda", int(total_cx_emenda))
 
@@ -99,7 +106,7 @@ def show_completed_tasks_manager():
                     tc1, tc2, tc3 = st.columns(3)
                     tc1.metric("Qtd CTOs", cto)
                     tc2.metric("Qtd Cx Emenda", cx)
-                    tc3.metric("Fibra (m)", f"{fibra:.0f}")
+                    tc3.metric("Fibra", _fmt_fibra(fibra))
                     tc4, tc5, tc6 = st.columns(3)
                     tc4.metric("Abert./Fech. Cx Emenda", abert_cx)
                     tc5.metric("Abert./Fech. CTO", abert_cto)

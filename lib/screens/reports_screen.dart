@@ -17,6 +17,16 @@ class ReportsScreen extends StatefulWidget {
   State<ReportsScreen> createState() => _ReportsScreenState();
 }
 
+String _formatFibra(double metros) {
+  if (metros >= 1000) {
+    final km = metros / 1000;
+    return km == km.truncateToDouble()
+        ? '${km.toInt()} km'
+        : '${km.toStringAsFixed(2)} km';
+  }
+  return '${metros.toInt()} m';
+}
+
 class _ReportsScreenState extends State<ReportsScreen> {
   _ReportPeriod _selectedPeriod = _ReportPeriod.month;
   int? _touchedPieIndex;
@@ -492,10 +502,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
               const SizedBox(width: 10),
               Expanded(
                   child: _buildIspCard(
-                      'Fibra (m)',
-                      fibra == fibra.truncateToDouble()
-                          ? '${fibra.toInt()}'
-                          : fibra.toStringAsFixed(1),
+                      fibra >= 1000 ? 'Fibra (km)' : 'Fibra (m)',
+                      _formatFibra(fibra),
                       Icons.straighten_outlined,
                       AppTheme.completedColor)),
             ],
@@ -593,7 +601,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         AppTheme.inProgressColor),
                   if ((t.fibraLancada ?? 0) > 0)
                     _buildIspChip(
-                        'Fibra: ${t.fibraLancada!.toStringAsFixed(1)}m',
+                        'Fibra: ${_formatFibra(t.fibraLancada!)}',
                         AppTheme.completedColor),
                   if ((t.aberturaFechamentoCxEmenda ?? 0) > 0)
                     _buildIspChip(

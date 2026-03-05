@@ -17,6 +17,14 @@ from auth.authentication import require_login, get_current_user, is_admin
 from database.supabase_only_connection import db
 
 
+def fmt_fibra(metros: float) -> str:
+    """Formata metros em m ou km conforme o valor."""
+    if metros >= 1000:
+        km = metros / 1000
+        return f"{km:.0f} km" if km == int(km) else f"{km:.2f} km"
+    return f"{metros:.0f} m"
+
+
 def extract_materials_from_text(materials_text):
     """Extrai métricas de materiais do campo materials (texto livre)."""
     if not materials_text:
@@ -250,7 +258,7 @@ def render_dashboard_page():
     with kpi_isp2:
         st.metric("Qtd Cx Emenda", int(total_cx_emenda))
     with kpi_isp3:
-        st.metric("Fibra Lançada (m)", f"{total_fibra:.0f}")
+        st.metric("Fibra Lançada", fmt_fibra(total_fibra))
 
     kpi_isp4, kpi_isp5, kpi_isp6 = st.columns(3)
     with kpi_isp4:
@@ -655,7 +663,7 @@ def render_dashboard_page():
 
             col_t4, col_t5, col_t6, col_t7 = st.columns(4)
             with col_t4:
-                st.metric("Fibra Lançada (m)", f"{df_materiais['Fibra (m)'].sum():.0f}")
+                st.metric("Fibra Lançada", fmt_fibra(df_materiais['Fibra (m)'].sum()))
             with col_t5:
                 st.metric("Abert. Cx Emenda", int(df_materiais['Abert. Cx Emenda'].sum()))
             with col_t6:

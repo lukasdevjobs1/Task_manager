@@ -436,7 +436,7 @@ class TaskDetailScreen extends StatelessWidget {
                         icon: Icons.straighten_outlined,
                         color: AppTheme.textSecondary,
                         child: Text(
-                            'Fibra Lançada: ${task.fibraLancada!.toStringAsFixed(2)} m')),
+                            'Fibra Lançada: ${(task.fibraLancada! >= 1000) ? '${(task.fibraLancada! / 1000).toStringAsFixed(2)} km' : '${task.fibraLancada!.toInt()} m'}')),
                   const SizedBox(height: 20),
                   const Divider(),
                   const SizedBox(height: 12),
