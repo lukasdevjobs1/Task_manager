@@ -62,3 +62,5 @@ Thumbs.db
 *.sql
 # Exceção: scripts de migração SQL versionados
 !migrations/*.sql
+# Other files
+.valoracao.md

@@ -1,6 +1,4 @@
 from .authentication import (
-    hash_password,
-    verify_password,
     authenticate_user,
     create_user,
     get_current_user,
@@ -10,8 +8,6 @@ from .authentication import (
 )
 
 __all__ = [
-    "hash_password",
-    "verify_password",
     "authenticate_user",
     "create_user",
     "get_current_user",
