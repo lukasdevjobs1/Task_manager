@@ -70,7 +70,7 @@ Sistema completo de **gerenciamento de tarefas de campo para provedores de inter
   - Sincronização automática ao reconectar
 
 - **Chat**
-  - Comunicação em tempo real entre técnico e gestor via Supabase Realtime
+  - Comunicação em tempo real entre técnico e gestor via Supabase Realtime ( ainda em desenvolvimento )
 
 ---
 
