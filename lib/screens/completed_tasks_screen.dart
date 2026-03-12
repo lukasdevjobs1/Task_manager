@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import '../providers/task_provider.dart';
 import '../models/task_assignment.dart';
 import '../config/theme.dart';
+import '../widgets/task_card.dart';
 
 enum _PeriodFilter { week, month, all }
 
@@ -84,8 +84,10 @@ class _CompletedTasksScreenState extends State<CompletedTasksScreen> {
                 : ListView.builder(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                     itemCount: filtered.length,
-                    itemBuilder: (context, index) =>
-                        _buildCompletedCard(context, filtered[index]),
+                    itemBuilder: (context, index) => TaskCard(
+                      task: filtered[index],
+                      onTap: () => context.push('/task/${filtered[index].id}'),
+                    ),
                   ),
           ),
         ],
@@ -105,95 +107,6 @@ class _CompletedTasksScreenState extends State<CompletedTasksScreen> {
         fontSize: 13,
       ),
       onSelected: (_) => setState(() => _selectedPeriod = value),
-    );
-  }
-
-  Widget _buildCompletedCard(BuildContext context, TaskAssignment task) {
-    final completedDate = task.updatedAt ?? task.createdAt;
-    final formattedDate =
-        DateFormat("dd/MM/yyyy 'às' HH:mm").format(completedDate);
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: InkWell(
-        onTap: () => context.push('/task/${task.id}'),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Ícone de concluído
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.completedColor.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.check_circle,
-                  color: AppTheme.completedColor,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 14),
-
-              // Conteúdo
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      task.title,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 6),
-                    if (task.address != null) ...[
-                      Row(
-                        children: [
-                          const Icon(Icons.location_on_outlined,
-                              size: 13, color: AppTheme.textSecondary),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              task.address!,
-                              style: Theme.of(context).textTheme.bodySmall,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                    ],
-                    Row(
-                      children: [
-                        const Icon(Icons.calendar_today_outlined,
-                            size: 13, color: AppTheme.textSecondary),
-                        const SizedBox(width: 4),
-                        Text(
-                          formattedDate,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.copyWith(color: AppTheme.textSecondary),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              const Icon(Icons.chevron_right,
-                  color: AppTheme.textSecondary, size: 20),
-            ],
-          ),
-        ),
-      ),
     );
   }
 

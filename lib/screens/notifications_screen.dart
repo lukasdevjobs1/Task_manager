@@ -1,11 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import '../providers/notification_provider.dart';
+import '../services/supabase_service.dart';
 import '../config/theme.dart';
 import 'package:intl/intl.dart';
 
 class NotificationsScreen extends StatelessWidget {
   const NotificationsScreen({super.key});
+
+  Future<void> _onVerTarefa(BuildContext context, int taskId) async {
+    final task = await SupabaseService.getTaskById(taskId);
+    if (!context.mounted) return;
+
+    if (task != null && task.isCompleted) {
+      context.push('/task/$taskId');
+    } else {
+      context.go('/tasks');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,6 +61,25 @@ class NotificationsScreen extends StatelessWidget {
                         DateFormat('dd/MM/yyyy HH:mm').format(notification.createdAt),
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
+                      if (notification.referenceId != null) ...[
+                        const SizedBox(height: 6),
+                        TextButton.icon(
+                          onPressed: () {
+                            if (!notification.read) {
+                              notificationProvider.markAsRead(notification.id);
+                            }
+                            _onVerTarefa(context, notification.referenceId!);
+                          },
+                          icon: const Icon(Icons.open_in_new, size: 16),
+                          label: const Text('Ver tarefa'),
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            minimumSize: const Size(0, 0),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            foregroundColor: AppTheme.primaryColor,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                   onTap: () {
