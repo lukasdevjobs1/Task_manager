@@ -18,9 +18,11 @@ PAGE_SIZE = 15
 
 def _pagination_controls(page_key: str, total: int, reset_key: str = None) -> int:
     """Controles de paginação. Retorna página atual (0-indexed)."""
+    if total == 0:
+        return 0
+
     total_pages = max(1, -(-total // PAGE_SIZE))
-    page = st.session_state.get(page_key, 0)
-    page = min(page, total_pages - 1)
+    page = min(st.session_state.get(page_key, 0), total_pages - 1)
 
     c1, c2, c3 = st.columns([1, 3, 1])
     with c1:

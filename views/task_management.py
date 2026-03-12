@@ -24,9 +24,11 @@ def _pagination_controls(page_key: str, total: int, filter_sig: str = "") -> int
         st.session_state[f"{page_key}_sig"] = filter_sig
         st.session_state[page_key] = 0
 
+    if total == 0:
+        return 0
+
     total_pages = max(1, -(-total // PAGE_SIZE_MGMT))
-    page = st.session_state.get(page_key, 0)
-    page = min(page, total_pages - 1)
+    page = min(st.session_state.get(page_key, 0), total_pages - 1)
 
     c1, c2, c3 = st.columns([1, 3, 1])
     with c1:
@@ -240,7 +242,6 @@ def render_task_management_page():
     with tab2:
         st.subheader("Tarefas Aguardando Atribuição")
         
-        _pagination_controls("tab2_page", 0, "")  # pre-render para não mudar layout
         unassigned_data, unassigned_total = db.get_task_assignments_paginated(
             company_id=user['company_id'],
             page=st.session_state.get("tab2_page", 0),
