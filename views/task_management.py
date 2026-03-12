@@ -431,7 +431,7 @@ def render_task_management_page():
                         st.write(f"**Prioridade:** {task['priority'].capitalize()}")
                         
                         # Ver detalhes
-                        if st.button("👁️ Ver Detalhes", key=f"view_details_{task['id']}_{hash(str(task))}", use_container_width=True, type="primary"):
+                        if st.button("👁️ Ver Detalhes", key=f"view_details_{task['id']}", use_container_width=True, type="primary"):
                             st.session_state["selected_assignment_id"] = task["id"]
                             st.session_state["current_page"] = "assignment_details"
                             st.rerun()
