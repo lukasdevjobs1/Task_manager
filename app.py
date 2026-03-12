@@ -35,6 +35,7 @@ from auth.authentication import (
     logout_user,
     get_current_user,
 )
+from auth.session_cookie import init_cookie_manager, get_session_from_cookie
 from views.login import render_login_page
 from views.dashboard_supabase import render_dashboard_page
 from views.admin import render_admin_page
@@ -477,8 +478,49 @@ def render_navbar(user: dict, unread: int):
         st.rerun()
 
 
+def _restore_session_from_cookie() -> None:
+    """
+    Se a sessão está vazia (ex: após refresh) mas há um cookie válido,
+    restaura os dados do usuário no session_state sem exigir novo login.
+    """
+    session_data = get_session_from_cookie()
+    if not session_data:
+        return
+    st.session_state["logged_in"] = True
+    st.session_state["user_id"] = session_data["user_id"]
+    st.session_state["company_id"] = session_data["company_id"]
+    st.session_state["company_name"] = session_data["company_name"]
+    st.session_state["username"] = session_data["username"]
+    st.session_state["full_name"] = session_data["full_name"]
+    st.session_state["team"] = session_data["team"]
+    st.session_state["role"] = session_data["role"]
+    st.session_state["is_super_admin"] = session_data.get("is_super_admin", False)
+
+
 def main():
     configure_page()
+
+    # ── Cookie manager deve ser inicializado ANTES de qualquer UI condicional ──
+    # O CookieManager é um iframe que carrega de forma assíncrona:
+    # - Run 1 (pós-refresh): componente renderiza mas os dados do cookie ainda
+    #   não chegaram ao Python → mostramos loading e paramos.
+    # - O componente envia os dados ao Streamlit → dispara re-run automático.
+    # - Run 2: cookie disponível → restaura sessão → usuário continua logado.
+    init_cookie_manager()
+
+    if not is_logged_in():
+        if "cookie_load_attempted" not in st.session_state:
+            # Primeira execução após carregamento da página: aguarda o cookie manager
+            st.session_state["cookie_load_attempted"] = True
+            st.markdown(
+                "<div style='display:flex;justify-content:center;align-items:center;"
+                "height:80vh;'><p style='color:#94a3b8;font-size:15px;'>Carregando...</p></div>",
+                unsafe_allow_html=True,
+            )
+            st.stop()
+
+        # Segunda execução: dados do cookie já disponíveis → tenta restaurar sessão
+        _restore_session_from_cookie()
 
     if not is_logged_in():
         render_login_page()

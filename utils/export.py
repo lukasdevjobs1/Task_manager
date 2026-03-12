@@ -113,17 +113,77 @@ def export_to_pdf(
     month: Optional[int] = None,
 ) -> Optional[bytes]:
     """
-    Exporta DataFrame para arquivo PDF formatado.
-
-    Args:
-        df: DataFrame com os dados
-        title: Título do relatório
-        year: Ano do relatório
-        month: Mês do relatório (opcional)
-
-    Returns:
-        Bytes do arquivo PDF ou None em caso de erro
+    Exporta DataFrame para PDF landscape com quebra de linha correta nas células.
+    'Observações' é excluída automaticamente. Inclui resumo geral e por empresa.
     """
+    # ── Estilos de célula (Paragraph habilita word-wrap dentro da tabela) ─────
+    cell_style = ParagraphStyle(
+        "Cell", fontName="Helvetica", fontSize=6.5, leading=8, spaceAfter=0,
+    )
+    header_style = ParagraphStyle(
+        "Header", fontName="Helvetica-Bold", fontSize=6.5, leading=8,
+        textColor=colors.whitesmoke, alignment=1, spaceAfter=0,
+    )
+
+    # Nomes abreviados para o cabeçalho (evita células muito largas)
+    HEADER_ALIASES = {
+        "Fibra Lançada (m)":      "Fibra (m)",
+        "Abert./Fech. Cx Emenda": "Ab. Cx\nEmenda",
+        "Abert./Fech. CTO":       "Ab.\nCTO",
+        "Abert./Fech. Rozeta":    "Ab.\nRozeta",
+        "Qtd Cx Emenda":          "Cx\nEmenda",
+        "Qtd CTOs":               "CTOs",
+        "Concluída em":           "Concluída\nem",
+    }
+
+    # Larguras fixas por coluna (landscape A4 ≈ 27.7 cm úteis)
+    COL_WIDTHS = {
+        "Colaborador":            3.5 * cm,
+        "Empresa":                3.5 * cm,
+        "Título":                 3.5 * cm,
+        "Endereço":               4.0 * cm,
+        "Concluída em":           2.3 * cm,
+        "Fibra Lançada (m)":      1.8 * cm,
+        "Qtd CTOs":               1.4 * cm,
+        "Qtd Cx Emenda":          1.4 * cm,
+        "Abert./Fech. Cx Emenda": 1.8 * cm,
+        "Abert./Fech. CTO":       1.5 * cm,
+        "Abert./Fech. Rozeta":    1.8 * cm,
+    }
+
+    METRIC_COLS = [
+        ("Qtd CTOs",               "Total de CTOs"),
+        ("Qtd Cx Emenda",          "Total de Cx Emenda"),
+        ("Fibra Lançada (m)",      "Total de Fibra Lançada"),
+        ("Abert./Fech. Cx Emenda", "Total Ab. Cx Emenda"),
+        ("Abert./Fech. CTO",       "Total Ab. CTO"),
+        ("Abert./Fech. Rozeta",    "Total Ab. Rozeta"),
+    ]
+
+    def fmt_fibra(m):
+        return f"{m/1000:.2f} km" if m >= 1000 else f"{m:.0f} m"
+
+    def make_table(data_rows, col_names, widths):
+        """Monta Table com Paragraphs em todas as células."""
+        header_row = [Paragraph(HEADER_ALIASES.get(c, c), header_style) for c in col_names]
+        body = []
+        for row in data_rows:
+            body.append([Paragraph(str(v), cell_style) for v in row])
+
+        tbl = Table([header_row] + body, colWidths=widths, repeatRows=1)
+        tbl.setStyle(TableStyle([
+            ("BACKGROUND",     (0, 0), (-1, 0),  colors.HexColor("#1e3a5f")),
+            ("VALIGN",         (0, 0), (-1, -1), "MIDDLE"),
+            ("ALIGN",          (0, 0), (-1, 0),  "CENTER"),
+            ("GRID",           (0, 0), (-1, -1), 0.4, colors.HexColor("#cccccc")),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#eef2f7")]),
+            ("TOPPADDING",     (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING",  (0, 0), (-1, -1), 3),
+            ("LEFTPADDING",    (0, 0), (-1, -1), 3),
+            ("RIGHTPADDING",   (0, 0), (-1, -1), 3),
+        ]))
+        return tbl
+
     try:
         output = io.BytesIO()
         doc = SimpleDocTemplate(
@@ -138,124 +198,87 @@ def export_to_pdf(
         elements = []
         styles = getSampleStyleSheet()
 
-        # Título
+        # ── Cabeçalho do documento ────────────────────────────────────────────
         title_style = ParagraphStyle(
-            "Title",
-            parent=styles["Heading1"],
-            fontSize=16,
-            alignment=1,  # Center
-            spaceAfter=12,
+            "Title", parent=styles["Heading1"], fontSize=13, alignment=1, spaceAfter=4,
         )
-        elements.append(Paragraph(title, title_style))
-
-        # Período
-        meses = [
-            "", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-            "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
-        ]
+        sub_style = ParagraphStyle(
+            "Sub", parent=styles["Normal"], fontSize=8, alignment=1, spaceAfter=3,
+        )
+        meses = ["", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+                 "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
         periodo = f"{meses[month]} de {year}" if month else str(year)
 
-        subtitle_style = ParagraphStyle(
-            "Subtitle",
-            parent=styles["Normal"],
-            fontSize=10,
-            alignment=1,
-            spaceAfter=6,
+        elements.append(Paragraph(title, title_style))
+        elements.append(Paragraph(f"Período: {periodo}", sub_style))
+        elements.append(Paragraph(f"Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M')}", sub_style))
+        elements.append(Spacer(1, 8))
+
+        # ── Preparar DataFrame — remove Observações ───────────────────────────
+        df_pdf = df.drop(columns=["Observações"], errors="ignore").copy()
+        for col in df_pdf.select_dtypes(include=["bool"]).columns:
+            df_pdf[col] = df_pdf[col].apply(lambda x: "Sim" if x else "Não")
+
+        # Determinar colunas e larguras na ordem do DataFrame
+        cols = df_pdf.columns.tolist()
+        widths = [COL_WIDTHS.get(c, 2.5 * cm) for c in cols]
+
+        # Montar linhas
+        rows = []
+        for _, row in df_pdf.iterrows():
+            rows.append([str(v) if v not in (None, "", "—") else "—" for v in row.values])
+
+        elements.append(make_table(rows, cols, widths))
+        elements.append(Spacer(1, 12))
+
+        # ── Resumo Geral ──────────────────────────────────────────────────────
+        section_style = ParagraphStyle(
+            "Section", parent=styles["Normal"], fontSize=9,
+            fontName="Helvetica-Bold", spaceAfter=3, spaceBefore=6,
         )
-        elements.append(Paragraph(f"Período: {periodo}", subtitle_style))
-        elements.append(
-            Paragraph(
-                f"Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M')}",
-                subtitle_style,
-            )
-        )
-        elements.append(Spacer(1, 20))
-
-        # Preparar dados para tabela
-        df_export = df.copy()
-
-        # Converter colunas booleanas
-        bool_columns = df_export.select_dtypes(include=["bool"]).columns
-        for col in bool_columns:
-            df_export[col] = df_export[col].apply(lambda x: "Sim" if x else "Não")
-
-        # Selecionar colunas principais para PDF (evitar tabela muito larga)
-        columns_to_export = []
-        column_mapping = {
-            "created_at": "Data",
-            "usuario": "Usuário",
-            "empresa": "Empresa",
-            "bairro": "Bairro",
-            "qtd_cto": "CTOs",
-            "qtd_caixa_emenda": "Cx. Emenda",
-            "fibra_lancada": "Fibra (m)",
-            "equipe": "Equipe",
-        }
-
-        for col in df_export.columns:
-            if col in column_mapping:
-                columns_to_export.append(col)
-
-        if columns_to_export:
-            df_export = df_export[columns_to_export]
-            df_export.columns = [column_mapping.get(c, c) for c in columns_to_export]
-
-        # Criar dados da tabela
-        table_data = [df_export.columns.tolist()]
-        for _, row in df_export.iterrows():
-            table_data.append([str(v)[:30] for v in row.values])  # Truncar valores longos
-
-        # Criar tabela
-        col_widths = [2.5 * cm] * len(df_export.columns)
-        table = Table(table_data, colWidths=col_widths, repeatRows=1)
-
-        # Estilo da tabela
-        table.setStyle(
-            TableStyle([
-                # Header
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#4472C4")),
-                ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
-                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("FONTSIZE", (0, 0), (-1, 0), 8),
-                ("ALIGN", (0, 0), (-1, 0), "CENTER"),
-                ("VALIGN", (0, 0), (-1, 0), "MIDDLE"),
-                # Body
-                ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
-                ("FONTSIZE", (0, 1), (-1, -1), 7),
-                ("ALIGN", (0, 1), (-1, -1), "LEFT"),
-                ("VALIGN", (0, 1), (-1, -1), "MIDDLE"),
-                # Grid
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
-                # Alternate row colors
-                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F2F2F2")]),
-            ])
+        sum_style = ParagraphStyle(
+            "Sum", parent=styles["Normal"], fontSize=8, spaceAfter=2,
         )
 
-        elements.append(table)
+        elements.append(Paragraph("Resumo Geral", section_style))
+        elements.append(Paragraph(f"<b>Total de Tarefas:</b> {len(df)}", sum_style))
+        for col, label in METRIC_COLS:
+            if col in df.columns:
+                total = df[col].sum()
+                val = fmt_fibra(total) if col == "Fibra Lançada (m)" else int(total)
+                elements.append(Paragraph(f"<b>{label}:</b> {val}", sum_style))
 
-        # Resumo
-        elements.append(Spacer(1, 20))
-        summary_style = ParagraphStyle(
-            "Summary",
-            parent=styles["Normal"],
-            fontSize=9,
-            spaceAfter=6,
-        )
+        # ── Totais por Empresa ────────────────────────────────────────────────
+        if "Empresa" in df.columns:
+            elements.append(Spacer(1, 8))
+            elements.append(Paragraph("Tarefas por Empresa", section_style))
 
-        total_tarefas = len(df)
-        elements.append(Paragraph(f"<b>Total de Tarefas:</b> {total_tarefas}", summary_style))
+            metric_cols_present = [c for c, _ in METRIC_COLS if c in df.columns]
+            agg: dict = {c: "sum" for c in metric_cols_present}
+            # contar tarefas via coluna auxiliar
+            df_count = df.copy()
+            df_count["_n"] = 1
+            agg["_n"] = "sum"
 
-        if "qtd_cto" in df.columns:
-            total_cto = df["qtd_cto"].sum()
-            elements.append(Paragraph(f"<b>Total de CTOs:</b> {total_cto}", summary_style))
+            grp = df_count.groupby("Empresa").agg(agg).reset_index()
+            grp = grp.rename(columns={"_n": "Tarefas"})
+            grp = grp.sort_values("Tarefas", ascending=False)
 
-        if "qtd_caixa_emenda" in df.columns:
-            total_ce = df["qtd_caixa_emenda"].sum()
-            elements.append(Paragraph(f"<b>Total de Caixas de Emenda:</b> {total_ce}", summary_style))
+            if "Fibra Lançada (m)" in grp.columns:
+                grp["Fibra Lançada (m)"] = grp["Fibra Lançada (m)"].apply(fmt_fibra)
+            for c in metric_cols_present:
+                if c != "Fibra Lançada (m)" and c in grp.columns:
+                    grp[c] = grp[c].astype(int)
 
-        if "fibra_lancada" in df.columns:
-            total_fibra = df["fibra_lancada"].sum()
-            elements.append(Paragraph(f"<b>Total de Fibra Lançada:</b> {total_fibra:.2f} m", summary_style))
+            emp_cols = ["Empresa", "Tarefas"] + metric_cols_present
+            emp_rows = []
+            for _, row in grp.iterrows():
+                emp_rows.append([str(row.get(c, "—")) for c in emp_cols])
+
+            emp_widths_map = {**COL_WIDTHS, "Empresa": 5.0 * cm, "Tarefas": 1.8 * cm}
+            emp_widths = [emp_widths_map.get(c, 2.5 * cm) for c in emp_cols]
+
+            elements.append(make_table(emp_rows, emp_cols, emp_widths))
 
         doc.build(elements)
         return output.getvalue()

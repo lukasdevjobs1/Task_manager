@@ -11,6 +11,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from database.supabase_only_connection import db
+from auth.session_cookie import set_session_cookie, clear_session_cookie
 
 
 def authenticate_user(username: str, password: str) -> Optional[dict]:
@@ -60,7 +61,7 @@ def get_user_by_id(user_id: int, company_id: int = None) -> Optional[dict]:
 
 
 def login_user(user_data: dict) -> None:
-    """Salva dados do usuário na sessão do Streamlit."""
+    """Salva dados do usuário na sessão do Streamlit e em cookie persistente."""
     st.session_state["logged_in"] = True
     st.session_state["user_id"] = user_data["id"]
     st.session_state["company_id"] = user_data["company_id"]
@@ -70,10 +71,12 @@ def login_user(user_data: dict) -> None:
     st.session_state["team"] = user_data["team"]
     st.session_state["role"] = user_data["role"]
     st.session_state["is_super_admin"] = user_data.get("is_super_admin", False)
+    set_session_cookie(user_data)
 
 
 def logout_user() -> None:
-    """Remove dados do usuário da sessão do Streamlit."""
+    """Remove dados do usuário da sessão do Streamlit e apaga o cookie."""
+    clear_session_cookie()
     keys_to_remove = [
         "logged_in", "user_id", "company_id", "company_name",
         "username", "full_name", "team", "role", "is_super_admin"

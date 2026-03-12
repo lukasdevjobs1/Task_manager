@@ -266,6 +266,49 @@ class SupabaseDatabase:
             print(f"Erro ao buscar tarefas: {e}")
             return []
     
+    def get_task_assignments_paginated(
+        self,
+        company_id: int,
+        page: int = 0,
+        page_size: int = 15,
+        user_id: int = None,
+        status: str = None,
+        assigned_only: bool = False,
+        unassigned_only: bool = False,
+        assigned_to_name: str = None,
+    ) -> tuple[list, int]:
+        """Retorna (data, total_count) com paginação server-side."""
+        try:
+            start = page * page_size
+            end = start + page_size - 1
+
+            query = self.client.table('task_assignments').select(
+                '*, assigned_to_user:users!assigned_to(id, full_name, team), assigned_by_user:users!assigned_by(full_name)',
+                count='exact'
+            ).eq('company_id', company_id)
+
+            if user_id:
+                query = query.eq('assigned_to', user_id)
+            if status:
+                query = query.eq('status', status)
+            if assigned_only:
+                query = query.not_.is_('assigned_to', 'null')
+            if unassigned_only:
+                query = query.is_('assigned_to', 'null')
+
+            result = query.order('created_at', desc=True).range(start, end).execute()
+
+            data = result.data or []
+
+            # filtro por colaborador (feito em memória pois Supabase não filtra join direto)
+            if assigned_to_name:
+                data = [t for t in data if (t.get('assigned_to_user') or {}).get('full_name') == assigned_to_name]
+
+            return data, result.count or 0
+        except Exception as e:
+            print(f"Erro ao buscar tarefas paginadas: {e}")
+            return [], 0
+
     def get_task_assignment_by_id(self, assignment_id: int, company_id: int = None) -> Optional[dict]:
         """Retorna tarefa por ID"""
         try:

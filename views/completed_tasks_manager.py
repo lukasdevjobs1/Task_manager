@@ -3,6 +3,7 @@ import pandas as pd
 from database.supabase_only_connection import db
 from auth.authentication import require_login, get_current_user
 from datetime import datetime
+from utils.export import export_to_excel, export_to_pdf
 
 
 def _fmt_fibra(metros: float) -> str:
@@ -10,6 +11,31 @@ def _fmt_fibra(metros: float) -> str:
         km = metros / 1000
         return f"{km:.0f} km" if km == int(km) else f"{km:.2f} km"
     return f"{metros:.0f} m"
+
+
+PAGE_SIZE = 15
+
+
+def _pagination_controls(page_key: str, total: int, reset_key: str = None) -> int:
+    """Controles de paginação. Retorna página atual (0-indexed)."""
+    total_pages = max(1, -(-total // PAGE_SIZE))
+    page = st.session_state.get(page_key, 0)
+    page = min(page, total_pages - 1)
+
+    c1, c2, c3 = st.columns([1, 3, 1])
+    with c1:
+        if st.button("← Anterior", key=f"{page_key}_prev", disabled=page == 0, use_container_width=True):
+            st.session_state[page_key] = page - 1
+            st.rerun()
+    with c2:
+        start_n = page * PAGE_SIZE + 1
+        end_n = min((page + 1) * PAGE_SIZE, total)
+        st.caption(f"Mostrando {start_n}–{end_n} de {total} tarefas  |  Página {page + 1}/{total_pages}")
+    with c3:
+        if st.button("Próximo →", key=f"{page_key}_next", disabled=page >= total_pages - 1, use_container_width=True):
+            st.session_state[page_key] = page + 1
+            st.rerun()
+    return page
 
 
 def show_completed_tasks_manager():
@@ -76,16 +102,84 @@ def show_completed_tasks_manager():
         st.info("Nenhuma tarefa concluída encontrada.")
         return
 
+    # ── Exportação ─────────────────────────────────────────────────────────
+    prefix = collaborator_filter.replace(" ", "_") if collaborator_filter != "Todos" else "tarefas_concluidas"
+    title  = f"Tarefas Concluídas — {collaborator_filter}" if collaborator_filter != "Todos" else "Tarefas Concluídas"
+    _render_export_buttons(tasks, title, prefix)
+
+    st.divider()
+
     # ── Visualização por colaborador: tabela detalhada ─────────────────────
     if collaborator_filter != "Todos":
         _show_user_table(tasks, collaborator_filter)
         return
 
     # ── Visualização geral: expanders ──────────────────────────────────────
-    for task in tasks:
+    # reset de página quando filtros mudam
+    filter_sig = f"{date_filter}|{collaborator_filter}"
+    if st.session_state.get("_ct_filter_sig") != filter_sig:
+        st.session_state["_ct_filter_sig"] = filter_sig
+        st.session_state["ct_page"] = 0
+
+    page = _pagination_controls("ct_page", len(tasks))
+    page_tasks = tasks[page * PAGE_SIZE:(page + 1) * PAGE_SIZE]
+
+    for task in page_tasks:
         assignee = (task.get("assigned_to_user") or {}).get("full_name", "N/A")
         with st.expander(f"{task['title']} — {assignee}"):
             _render_task_expander(task)
+
+
+def _build_export_df(tasks: list) -> pd.DataFrame:
+    """DataFrame completo usado na exportação Excel e PDF."""
+    rows = []
+    for t in tasks:
+        fibra = float(t.get("fibra_lancada") or 0)
+        assignee = (t.get("assigned_to_user") or {}).get("full_name", "N/A")
+        rows.append({
+            "Colaborador":            assignee,
+            "Empresa":                t.get("empresa_nome") or "—",
+            "Título":                 t.get("title") or "—",
+            "Endereço":               t.get("address") or "—",
+            "Concluída em":           _fmt_dt(t.get("completed_at")),
+            "Fibra Lançada (m)":      fibra,
+            "Qtd CTOs":               int(t.get("quantidade_cto") or 0),
+            "Qtd Cx Emenda":          int(t.get("quantidade_cx_emenda") or 0),
+            "Abert./Fech. Cx Emenda": int(t.get("abertura_fechamento_cx_emenda") or 0),
+            "Abert./Fech. CTO":       int(t.get("abertura_fechamento_cto") or 0),
+            "Abert./Fech. Rozeta":    int(t.get("abertura_fechamento_rozeta") or 0),
+            "Observações":            t.get("observations") or "—",
+        })
+    return pd.DataFrame(rows)
+
+
+def _render_export_buttons(tasks: list, title: str, filename_prefix: str) -> None:
+    """Renderiza botões de download Excel e PDF com todas as métricas."""
+    if not tasks:
+        return
+    now = datetime.now()
+    df = _build_export_df(tasks)
+    col_excel, col_pdf, _ = st.columns([1, 1, 5])
+    with col_excel:
+        excel_bytes = export_to_excel(df, title)
+        if excel_bytes:
+            st.download_button(
+                label="📥 Excel",
+                data=excel_bytes,
+                file_name=f"{filename_prefix}_{now.strftime('%Y%m%d')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+            )
+    with col_pdf:
+        pdf_bytes = export_to_pdf(df, title, now.year, now.month)
+        if pdf_bytes:
+            st.download_button(
+                label="📄 PDF",
+                data=pdf_bytes,
+                file_name=f"{filename_prefix}_{now.strftime('%Y%m%d')}.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+            )
 
 
 def _show_user_table(tasks: list, collaborator_name: str):

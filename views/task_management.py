@@ -15,6 +15,49 @@ from database.supabase_only_connection import db
 from utils.push_notification import notify_task_assigned
 
 
+PAGE_SIZE_MGMT = 15
+
+
+def _pagination_controls(page_key: str, total: int, filter_sig: str = "") -> int:
+    """Controles de paginação para task_management. Retorna página atual (0-indexed)."""
+    if st.session_state.get(f"{page_key}_sig") != filter_sig:
+        st.session_state[f"{page_key}_sig"] = filter_sig
+        st.session_state[page_key] = 0
+
+    total_pages = max(1, -(-total // PAGE_SIZE_MGMT))
+    page = st.session_state.get(page_key, 0)
+    page = min(page, total_pages - 1)
+
+    c1, c2, c3 = st.columns([1, 3, 1])
+    with c1:
+        if st.button("← Anterior", key=f"{page_key}_prev", disabled=page == 0, use_container_width=True):
+            st.session_state[page_key] = page - 1
+            st.rerun()
+    with c2:
+        s = page * PAGE_SIZE_MGMT + 1
+        e = min((page + 1) * PAGE_SIZE_MGMT, total)
+        st.caption(f"Mostrando {s}–{e} de {total}  |  Página {page + 1}/{total_pages}")
+    with c3:
+        if st.button("Próximo →", key=f"{page_key}_next", disabled=page >= total_pages - 1, use_container_width=True):
+            st.session_state[page_key] = page + 1
+            st.rerun()
+    return page
+
+
+def _is_overdue(task: dict) -> bool:
+    """Retorna True se a tarefa tem prazo vencido e ainda não foi concluída."""
+    if task.get("status") == "concluida":
+        return False
+    due = task.get("due_date")
+    if not due:
+        return False
+    try:
+        due_dt = datetime.fromisoformat(str(due).replace("Z", "+00:00")).replace(tzinfo=None)
+        return due_dt < datetime.now()
+    except Exception:
+        return False
+
+
 def send_push_for_task(user_id: int, task_id: int, task_title: str, assigned_by_name: str):
     """Envia push notification para o usuário."""
     try:
@@ -197,17 +240,31 @@ def render_task_management_page():
     with tab2:
         st.subheader("Tarefas Aguardando Atribuição")
         
-        unassigned = db.client.table('task_assignments').select(
-            '*, assigned_by_user:users!assigned_by(full_name)'
-        ).eq('company_id', user['company_id']).is_('assigned_to', 'null').order('created_at', desc=True).execute()
-        
-        if unassigned.data:
-            st.caption(f"Total: {len(unassigned.data)} tarefa(s)")
-            
-            for task in unassigned.data:
-                with st.expander(f"{'🔴' if task['priority']=='alta' else '🟡' if task['priority']=='media' else '🟢'} {task['title']}", expanded=False):
+        _pagination_controls("tab2_page", 0, "")  # pre-render para não mudar layout
+        unassigned_data, unassigned_total = db.get_task_assignments_paginated(
+            company_id=user['company_id'],
+            page=st.session_state.get("tab2_page", 0),
+            page_size=PAGE_SIZE_MGMT,
+            unassigned_only=True,
+        )
+        _pagination_controls("tab2_page", unassigned_total, "unassigned")
+
+        if unassigned_data:
+            st.caption(f"Total: {unassigned_total} tarefa(s)")
+
+            overdue_count = sum(1 for t in unassigned_data if _is_overdue(t))
+            if overdue_count:
+                st.warning(f"⚠️ {overdue_count} tarefa(s) com prazo vencido nesta página.")
+
+            for task in unassigned_data:
+                overdue = _is_overdue(task)
+                p_icon = "🔴" if task["priority"] == "alta" else "🟡" if task["priority"] == "media" else "🟢"
+                overdue_badge = " ⚠️ VENCIDA" if overdue else ""
+                with st.expander(f"{p_icon} {task['title']}{overdue_badge}", expanded=False):
+                    if overdue:
+                        st.error(f"⚠️ Prazo vencido em {task['due_date'][:10]}")
                     col1, col2 = st.columns([2, 1])
-                    
+
                     with col1:
                         st.write(f"**Descrição:** {task.get('description', 'N/A')}")
                         st.write(f"**Criada por:** {task['assigned_by_user']['full_name']}")
@@ -322,38 +379,49 @@ def render_task_management_page():
                 ["Todos", "pendente", "em_andamento", "concluida"]
             )
         
-        # Buscar tarefas
-        query = db.client.table('task_assignments').select(
-            '*, assigned_to_user:users!assigned_to(id, full_name, team), assigned_by_user:users!assigned_by(full_name)'
-        ).eq('company_id', user['company_id']).not_.is_('assigned_to', 'null')
-        
-        if filter_status != "Todos":
-            query = query.eq('status', filter_status)
-        
-        assigned = query.order('created_at', desc=True).execute()
-        
-        tasks_to_show = assigned.data or []
-        if filter_user != "Todos":
-            tasks_to_show = [t for t in tasks_to_show if t.get('assigned_to_user', {}).get('full_name') == filter_user]
-        
+        # Buscar tarefas com paginação
+        status_param = filter_status if filter_status != "Todos" else None
+        name_param = filter_user if filter_user != "Todos" else None
+        filter_sig_tab3 = f"{filter_user}|{filter_status}"
+
+        tab3_page = st.session_state.get("tab3_page", 0)
+        tasks_to_show, total_tab3 = db.get_task_assignments_paginated(
+            company_id=user['company_id'],
+            page=tab3_page,
+            page_size=PAGE_SIZE_MGMT,
+            assigned_only=True,
+            status=status_param,
+            assigned_to_name=name_param,
+        )
+        _pagination_controls("tab3_page", total_tab3, filter_sig_tab3)
+
         if tasks_to_show:
-            st.caption(f"Total: {len(tasks_to_show)} tarefa(s)")
-            
+            overdue_count = sum(1 for t in tasks_to_show if _is_overdue(t))
+            col_cap, col_warn = st.columns([1, 2])
+            col_cap.caption(f"Total: {total_tab3} tarefa(s)")
+            if overdue_count:
+                col_warn.warning(f"⚠️ {overdue_count} tarefa(s) com prazo vencido nesta página")
+
             for task in tasks_to_show:
-                status_icon = {"pendente": "🟡", "em_andamento": "🔵", "concluida": "🟢"}.get(task['status'], "⚪")
-                priority_icon = {"baixa": "🟢", "media": "🟡", "alta": "🔴"}.get(task['priority'], "⚪")
-                
-                with st.expander(f"{priority_icon} {task['title']} {status_icon}", expanded=False):
+                overdue = _is_overdue(task)
+                status_icon   = {"pendente": "🟡", "em_andamento": "🔵", "concluida": "🟢"}.get(task["status"], "⚪")
+                priority_icon = {"baixa": "🟢", "media": "🟡", "alta": "🔴"}.get(task["priority"], "⚪")
+                overdue_badge = " ⚠️ VENCIDA" if overdue else ""
+
+                with st.expander(f"{priority_icon} {task['title']} {status_icon}{overdue_badge}", expanded=False):
+                    if overdue:
+                        st.error(f"⚠️ Prazo vencido em {task['due_date'][:10]}")
                     col1, col2 = st.columns([2, 1])
-                    
+
                     with col1:
-                        assignee = task.get('assigned_to_user', {})
+                        assignee = task.get("assigned_to_user", {})
                         st.write(f"**👤 Atribuída a:** {assignee.get('full_name', 'N/A')} ({assignee.get('team', 'N/A').capitalize()})")
                         st.write(f"**Descrição:** {task.get('description', 'N/A')}")
-                        if task.get('address'):
+                        if task.get("address"):
                             st.write(f"**📍 Endereço:** {task['address']}")
-                        if task.get('due_date'):
-                            st.write(f"**⏰ Prazo:** {task['due_date'][:10]}")
+                        if task.get("due_date"):
+                            prazo_label = f"**⚠️ Prazo (VENCIDO):** {task['due_date'][:10]}" if overdue else f"**⏰ Prazo:** {task['due_date'][:10]}"
+                            st.write(prazo_label)
                         st.caption(f"Criada em: {task['created_at'][:16]}")
                     
                     with col2:
