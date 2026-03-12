@@ -4,12 +4,30 @@ import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../providers/task_provider.dart';
+import '../models/task_assignment.dart';
+import '../services/supabase_service.dart';
 import '../config/theme.dart';
 
-class TaskDetailScreen extends StatelessWidget {
+class TaskDetailScreen extends StatefulWidget {
   final int taskId;
 
   const TaskDetailScreen({super.key, required this.taskId});
+
+  @override
+  State<TaskDetailScreen> createState() => _TaskDetailScreenState();
+}
+
+class _TaskDetailScreenState extends State<TaskDetailScreen> {
+  TaskAssignment? _fetchedTask;
+  bool _loading = false;
+
+  int get taskId => widget.taskId;
+
+  Future<void> _fetchFromRemote() async {
+    setState(() => _loading = true);
+    final task = await SupabaseService.getTaskById(widget.taskId);
+    if (mounted) setState(() { _fetchedTask = task; _loading = false; });
+  }
 
   /// Abre o app de mapas nativo com a localização da tarefa.
   /// Prioridade: coordenadas GPS → endereço como fallback.
@@ -88,12 +106,15 @@ class TaskDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final taskProvider = Provider.of<TaskProvider>(context);
-    final task = taskProvider.getTaskById(taskId);
+    final task = taskProvider.getTaskById(taskId) ?? _fetchedTask;
 
     if (task == null) {
+      if (!_loading) _fetchFromRemote();
       return Scaffold(
         appBar: AppBar(title: const Text('Detalhes da Tarefa')),
-        body: const Center(child: Text('Tarefa não encontrada')),
+        body: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : const Center(child: Text('Tarefa não encontrada')),
       );
     }
 
