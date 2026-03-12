@@ -145,6 +145,7 @@ def render_notifications_page():
                             mark_as_read(notif["id"])
                         st.session_state["selected_assignment_id"] = notif["reference_id"]
                         st.session_state["current_page"] = "assignment_details"
+                        st.session_state["_skip_nav_redirect"] = True
                         st.rerun()
 
             st.markdown("---")

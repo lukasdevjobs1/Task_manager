@@ -434,6 +434,7 @@ def render_task_management_page():
                         if st.button("👁️ Ver Detalhes", key=f"view_details_{task['id']}", use_container_width=True, type="primary"):
                             st.session_state["selected_assignment_id"] = task["id"]
                             st.session_state["current_page"] = "assignment_details"
+                            st.session_state["_skip_nav_redirect"] = True
                             st.rerun()
                         
                         # Reatribuir
