@@ -17,6 +17,29 @@ COOKIE_NAME = "isp_session"
 COOKIE_MAX_AGE = 30 * 24 * 3600  # 30 dias
 
 
+# ── Sessões revogadas (memória do processo) ──────────────────────────────────
+# Persiste enquanto o servidor Streamlit estiver rodando — sobrevive a F5/rerun.
+# User IDs aqui não terão a sessão restaurada via cookie mesmo que o cookie
+# ainda esteja no browser (deleção de cookie é assíncrona no CookieManager).
+
+_revoked_user_ids: set = set()
+
+
+def revoke_session(user_id) -> None:
+    """Marca o user_id como deslogado no servidor."""
+    if user_id is not None:
+        _revoked_user_ids.add(str(user_id))
+
+
+def unrevoke_session(user_id) -> None:
+    """Remove a revogação ao fazer login novamente."""
+    _revoked_user_ids.discard(str(user_id))
+
+
+def _is_revoked(user_id) -> bool:
+    return str(user_id) in _revoked_user_ids
+
+
 # ── Codificação / decodificação segura ───────────────────────────────────────
 
 def _sign(data: str) -> str:
@@ -97,7 +120,7 @@ def clear_session_cookie() -> None:
 def get_session_from_cookie() -> Optional[dict]:
     """
     Lê e verifica o cookie de sessão.
-    Retorna dict com dados do usuário ou None se inexistente/inválido.
+    Retorna dict com dados do usuário ou None se inexistente/inválido/revogado.
     """
     cm = _get_cm()
     if cm is None:
@@ -106,6 +129,12 @@ def get_session_from_cookie() -> Optional[dict]:
         value = cm.get(COOKIE_NAME)
         if not value:
             return None
-        return _decode_session(value)
+        data = _decode_session(value)
+        if data is None:
+            return None
+        # Bloqueia restauração se o usuário fez logout explícito neste processo
+        if _is_revoked(data.get("user_id")):
+            return None
+        return data
     except Exception:
         return None
