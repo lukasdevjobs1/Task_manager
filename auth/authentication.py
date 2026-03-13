@@ -84,7 +84,6 @@ def logout_user() -> None:
     keys_to_remove = [
         "logged_in", "user_id", "company_id", "company_name",
         "username", "full_name", "team", "role", "is_super_admin",
-        "cookie_load_attempted",
     ]
     for key in keys_to_remove:
         if key in st.session_state:
