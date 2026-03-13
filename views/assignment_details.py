@@ -109,8 +109,9 @@ def render_assignment_details_page():
     # ── Header da página ────────────────────────────────────────────────────
     col_back, col_title = st.columns([1, 10])
     with col_back:
+        back_page = st.session_state.pop("assignment_details_back", "dashboard")
         if st.button("← Voltar", key="btn_back"):
-            st.session_state["current_page"] = "dashboard"
+            st.session_state["current_page"] = back_page
             st.rerun()
 
     status_info   = STATUS_LABEL.get(task.get("status", ""), ("—", "#64748b", "#f8fafc"))

@@ -24,9 +24,9 @@ def get_notifications(user_id: int, limit: int = 50) -> list:
     return db.get_notifications(user_id)
 
 
-def mark_as_read(notification_id: int) -> bool:
+def mark_as_read(notification_id: int, user_id: int = None) -> bool:
     """Marca uma notificação como lida via Supabase."""
-    return db.mark_notification_as_read(notification_id, None)
+    return db.mark_notification_as_read(notification_id, user_id)
 
 
 def mark_all_as_read(user_id: int) -> int:
@@ -135,15 +135,14 @@ def render_notifications_page():
             with col3:
                 if not notif["read"]:
                     if st.button("Marcar lida", key=f"read_{notif['id']}"):
-                        mark_as_read(notif["id"])
+                        mark_as_read(notif["id"], user["id"])
                         st.rerun()
 
                 if notif["reference_id"]:
                     if st.button("Ver tarefa", key=f"view_{notif['id']}"):
-                        # Marca como lida ao visualizar
-                        if not notif["read"]:
-                            mark_as_read(notif["id"])
+                        mark_as_read(notif["id"], user["id"])
                         st.session_state["selected_assignment_id"] = notif["reference_id"]
+                        st.session_state["assignment_details_back"] = "notifications"
                         st.session_state["current_page"] = "assignment_details"
                         st.session_state["_skip_nav_redirect"] = True
                         st.rerun()

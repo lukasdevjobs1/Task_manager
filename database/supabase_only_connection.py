@@ -444,12 +444,15 @@ class SupabaseDatabase:
             print(f"Erro ao buscar notificações: {e}")
             return []
     
-    def mark_notification_as_read(self, notification_id: int, user_id: int) -> bool:
+    def mark_notification_as_read(self, notification_id: int, user_id: int = None) -> bool:
         """Marca notificação como lida"""
         try:
-            self.client.table('notifications').update({
+            query = self.client.table('notifications').update({
                 'read': True
-            }).eq('id', notification_id).eq('user_id', user_id).execute()
+            }).eq('id', notification_id)
+            if user_id is not None:
+                query = query.eq('user_id', user_id)
+            query.execute()
             return True
         except Exception as e:
             print(f"Erro ao marcar notificação: {e}")
