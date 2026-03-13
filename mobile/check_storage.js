@@ -2,7 +2,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = 'https://ntatxgsykdnsfqxwnz.supabase.co';
-const supabaseServiceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im50YXRreGdzeWtkbnNmcnF4d256Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODQ2MjA3MSwiZXhwIjoyMDg0MDM4MDcxfQ.Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8'; // Service role key
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY; // Service role key
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 

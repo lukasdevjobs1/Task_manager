@@ -9,7 +9,7 @@ export const CONFIG = {
   // Configurações Supabase (mesmas do sistema web)
   SUPABASE: {
     URL: 'https://ntatkxgsykdnsfrqxwnz.supabase.co',
-    ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im50YXRreGdzeWtkbnNmcnF4d256Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0NjIwNzEsImV4cCI6MjA4NDAzODA3MX0.wmv7xL8z-1D5OYmOzDr-RUzFAgFBbWxMrJk7TMSFv4M',
+    ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
     BUCKET: 'task-photos'
   },
   
