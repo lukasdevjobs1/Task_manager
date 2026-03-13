@@ -486,7 +486,10 @@ def _restore_session_from_cookie() -> None:
     """
     Se a sessão está vazia (ex: após refresh) mas há um cookie válido,
     restaura os dados do usuário no session_state sem exigir novo login.
+    Não restaura se o usuário acabou de fazer logout explícito.
     """
+    if st.session_state.get("_logged_out"):
+        return
     session_data = get_session_from_cookie()
     if not session_data:
         return

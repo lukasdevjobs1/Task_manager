@@ -62,6 +62,7 @@ def get_user_by_id(user_id: int, company_id: int = None) -> Optional[dict]:
 
 def login_user(user_data: dict) -> None:
     """Salva dados do usuário na sessão do Streamlit e em cookie persistente."""
+    st.session_state.pop("_logged_out", None)
     st.session_state["logged_in"] = True
     st.session_state["user_id"] = user_data["id"]
     st.session_state["company_id"] = user_data["company_id"]
@@ -77,9 +78,13 @@ def login_user(user_data: dict) -> None:
 def logout_user() -> None:
     """Remove dados do usuário da sessão do Streamlit e apaga o cookie."""
     clear_session_cookie()
+    # Marca logout explícito para impedir restauração do cookie no próximo rerun
+    # (o cookie manager é assíncrono e pode ainda retornar o valor antigo)
+    st.session_state["_logged_out"] = True
     keys_to_remove = [
         "logged_in", "user_id", "company_id", "company_name",
-        "username", "full_name", "team", "role", "is_super_admin"
+        "username", "full_name", "team", "role", "is_super_admin",
+        "cookie_load_attempted",
     ]
     for key in keys_to_remove:
         if key in st.session_state:
